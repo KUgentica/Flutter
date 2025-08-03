@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../common_bottom_navigation.dart';
+import 'account_info_page.dart';
+import 'notice_page.dart';
+import 'qna_page.dart';
+import 'terms_page.dart';
 
 class MorePage extends StatefulWidget {
   const MorePage({super.key});
@@ -19,10 +23,7 @@ class _MorePageState extends State<MorePage> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          '더보기',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black),
-        ),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -49,26 +50,38 @@ class _MorePageState extends State<MorePage> {
                   label: '계정 정보',
                   background: const Color.fromRGBO(234, 234, 234, 0.5),
                   iconColor: const Color(0xFF0088FF),
-                  onTap: () => Navigator.pushNamed(context, '/account'),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AccountInfoPage()),
+                  ),
                 ),
                 _MenuBox(
                   icon: Icons.assignment_outlined,
                   label: '공지사항',
                   background: const Color.fromRGBO(234, 234, 234, 0.5),
-                  onTap: () => Navigator.pushNamed(context, '/notice'),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const NoticePage()),
+                  ),
                 ),
                 _MenuBox(
                   icon: Icons.edit_note_outlined,
                   label: '자주 묻는 질문',
                   background: const Color.fromRGBO(234, 234, 234, 0.5),
-                  onTap: () => Navigator.pushNamed(context, '/qna'),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const QnaPage()),
+                  ),
                 ),
                 _MenuBox(
                   icon: Icons.warning_amber_outlined,
                   label: '서비스 이용약관',
                   background: const Color.fromRGBO(234, 234, 234, 0.5),
                   iconColor: const Color.fromRGBO(249, 49, 4, 0.99),
-                  onTap: () => Navigator.pushNamed(context, '/terms'),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const TermsPage()),
+                  ),
                 ),
               ],
             ),

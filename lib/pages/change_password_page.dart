@@ -97,7 +97,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           ],
         ),
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 4, onTap: null),
     );
   }
 }

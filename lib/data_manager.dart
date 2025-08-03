@@ -52,4 +52,42 @@ class DataManager {
   bool isBookmarked(String id) {
     return _bookmarks.any((bookmark) => bookmark.id == id);
   }
+  
+  // 채팅 관련 상태 저장
+  final List<Map<String, String>> _chatMessages = [];
+  bool _showWelcomeCard = true;
+  bool _isConnected = false;
+  
+  // 채팅 메시지 목록 가져오기
+  List<Map<String, String>> get chatMessages => List.unmodifiable(_chatMessages);
+  
+  // 채팅 메시지 추가
+  void addChatMessage(String role, String text) {
+    _chatMessages.add({"role": role, "text": text});
+    _showWelcomeCard = false;
+  }
+  
+  // 채팅 메시지 목록 설정
+  void setChatMessages(List<Map<String, String>> messages) {
+    _chatMessages.clear();
+    _chatMessages.addAll(messages);
+    _showWelcomeCard = _chatMessages.isEmpty;
+  }
+  
+  // 채팅 메시지 초기화
+  void clearChatMessages() {
+    _chatMessages.clear();
+    _showWelcomeCard = true;
+  }
+  
+  // 웰컴 카드 표시 여부
+  bool get showWelcomeCard => _showWelcomeCard;
+  
+  // 연결 상태 설정
+  void setConnectionStatus(bool isConnected) {
+    _isConnected = isConnected;
+  }
+  
+  // 연결 상태 가져오기
+  bool get isConnected => _isConnected;
 } 

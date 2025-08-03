@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'login.dart';
 import 'signup.dart';
@@ -16,11 +17,15 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late ScrollController _scrollController;
   Timer? _timer;
   double _scrollPosition = 0;
+  
+  // 카테고리 애니메이션 컨트롤러들
+  late List<AnimationController> _categoryControllers;
+  late List<Animation<double>> _categoryAnimations;
   
   final List<Map<String, dynamic>> categories = [
     {
@@ -89,13 +94,46 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _initializeCategoryAnimations();
     _startAutoScroll();
+  }
+  
+  void _initializeCategoryAnimations() {
+    _categoryControllers = [];
+    _categoryAnimations = [];
+    
+    for (int i = 0; i < categories.length; i++) {
+      final controller = AnimationController(
+        duration: Duration(milliseconds: 2000 + (i * 300)),
+        vsync: this,
+      );
+      
+      final animation = Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(CurvedAnimation(
+        parent: controller,
+        curve: Curves.easeInOut,
+      ));
+      
+      _categoryControllers.add(controller);
+      _categoryAnimations.add(animation);
+      
+      // 각 카테고리마다 다른 타이밍으로 반복 애니메이션
+      controller.repeat();
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _scrollController.dispose();
+    
+    // 카테고리 애니메이션 컨트롤러들 해제
+    for (final controller in _categoryControllers) {
+      controller.dispose();
+    }
+    
     super.dispose();
   }
 
@@ -223,49 +261,67 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                       itemCount: categories.length,
                       itemBuilder: (context, index) {
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PolicyListPage(
-                                  category: categories[index]['title'],
-                                  categoryData: categories[index],
+                        return AnimatedBuilder(
+                          animation: _categoryAnimations[index],
+                          builder: (context, child) {
+                            // 사인 함수를 사용해서 위아래로 움직이는 애니메이션
+                            final value = _categoryAnimations[index].value;
+                            final offset = sin(value * 2 * pi) * 3.0; // 3픽셀 위아래 움직임
+                            
+                            return Transform.translate(
+                              offset: Offset(0, offset),
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => PolicyListPage(
+                                        category: categories[index]['title'],
+                                        categoryData: categories[index],
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8F8F8), // 거의 회색 배경
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.grey.withValues(alpha: 0.2),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        categories[index]['icon'],
+                                        color: categories[index]['color'],
+                                        size: screenWidth * 0.06,
+                                      ),
+                                      SizedBox(height: screenHeight * 0.005),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                                        child: Text(
+                                          categories[index]['title'],
+                                          style: TextStyle(
+                                            fontSize: screenWidth * 0.03,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
                           },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.blue[50],
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.blue[100]!),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  categories[index]['icon'],
-                                  color: categories[index]['color'],
-                                  size: screenWidth * 0.06,
-                                ),
-                                SizedBox(height: screenHeight * 0.005),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    categories[index]['title'],
-                                    style: TextStyle(
-                                      fontSize: screenWidth * 0.03,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         );
                       },
                     ),

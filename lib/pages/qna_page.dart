@@ -53,7 +53,6 @@ class QnaPage extends StatelessWidget {
           );
         },
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 4),
     );
   }
 }

@@ -36,7 +36,6 @@ class NoticePage extends StatelessWidget {
         separatorBuilder: (_, __) => const Divider(),
         itemCount: notices.length,
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 4),
     );
   }
 }

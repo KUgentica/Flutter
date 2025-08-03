@@ -76,7 +76,6 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
           ],
         ),
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 4, onTap: null),
     );
   }
 }

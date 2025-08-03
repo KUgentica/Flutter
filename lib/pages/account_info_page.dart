@@ -29,7 +29,7 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        centerTitle: false,
+        centerTitle: true,
         title: const Text(
           '계정정보',
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 22, color: Colors.black),
@@ -125,10 +125,6 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
           ),
           const SizedBox(height: 24),
         ],
-      ),
-      bottomNavigationBar: BottomNav(
-        currentIndex: 4,
-        onTap: (_) {},
       ),
     );
   }

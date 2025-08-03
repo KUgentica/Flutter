@@ -43,7 +43,6 @@ class TermsPage extends StatelessWidget {
           ),
         ),
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 4),
     );
   }
 }

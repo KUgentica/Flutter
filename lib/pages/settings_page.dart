@@ -80,7 +80,6 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 24),
         ],
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 4),
     );
   }
 }

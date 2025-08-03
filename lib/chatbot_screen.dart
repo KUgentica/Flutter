@@ -1,9 +1,8 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'bookmark.dart';
-import 'calendar.dart';
 import 'common_bottom_navigation.dart';
 
 class ChatBotScreen extends StatefulWidget {
@@ -13,7 +12,7 @@ class ChatBotScreen extends StatefulWidget {
   State<ChatBotScreen> createState() => _ChatBotScreenState();
 }
 
-class _ChatBotScreenState extends State<ChatBotScreen> {
+class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateMixin {
   int _selectedIndex = 2;
   final FocusNode _focusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
@@ -25,14 +24,96 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
   bool _isConnecting = false;
   int _reconnectAttempts = 0;
   static const int maxReconnectAttempts = 3;
+  
+  // 완료 버튼 터치 효과
+  bool _isPressed = false;
+  
+  // 메시지 애니메이션을 위한 변수들
+  final List<bool> _messageAnimations = [];
+  
+  // 연결 상태 애니메이션
+  late AnimationController _connectionController;
+  late Animation<double> _connectionRotation;
 
   WebSocketChannel? _channel;
+  
+  // 폭죽 아이콘 애니메이션
+  late AnimationController _partyIconController;
+  late Animation<double> _partyIconScale;
+  
+  // 키워드 애니메이션 컨트롤러들
+  late List<AnimationController> _keywordControllers;
+  late List<Animation<double>> _keywordAnimations;
 
   @override
   void initState() {
     super.initState();
+    _initializePartyIconAnimation();
+    _initializeConnectionAnimation();
     _connectWebSocket();
   }
+  
+  void _initializePartyIconAnimation() {
+    _partyIconController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    
+    _partyIconScale = Tween<double>(
+      begin: 1.0,
+      end: 1.3,
+    ).animate(CurvedAnimation(
+      parent: _partyIconController,
+      curve: Curves.elasticOut,
+    ));
+    
+    // 애니메이션 자동 반복
+    _partyIconController.repeat(reverse: true);
+    
+    // 키워드 애니메이션 초기화
+    _initializeKeywordAnimations();
+  }
+  
+  void _initializeKeywordAnimations() {
+    _keywordControllers = [];
+    _keywordAnimations = [];
+    
+    for (int i = 0; i < 10; i++) {
+      final controller = AnimationController(
+        duration: Duration(milliseconds: 2000 + (i * 200)),
+        vsync: this,
+      );
+      
+      final animation = Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(CurvedAnimation(
+        parent: controller,
+        curve: Curves.easeInOut,
+      ));
+      
+      _keywordControllers.add(controller);
+      _keywordAnimations.add(animation);
+      
+          // 각 키워드마다 다른 타이밍으로 반복 애니메이션
+    controller.repeat();
+  }
+}
+
+void _initializeConnectionAnimation() {
+  _connectionController = AnimationController(
+    duration: const Duration(seconds: 2),
+    vsync: this,
+  );
+  
+  _connectionRotation = Tween<double>(
+    begin: 0.0,
+    end: 1.0,
+  ).animate(CurvedAnimation(
+    parent: _connectionController,
+    curve: Curves.linear,
+  ));
+}
 
   /// 🔌 WebSocket 연결
   void _connectWebSocket() {
@@ -41,7 +122,7 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
     setState(() => _isConnecting = true);
 
     const String serverUrl = 'ws://10.0.2.2:3000';
-    print('🔌 WebSocket 연결 시도: $serverUrl');
+    // print('🔌 WebSocket 연결 시도: $serverUrl');
 
     try {
       _channel = IOWebSocketChannel.connect(serverUrl);
@@ -49,11 +130,11 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
       _channel!.stream.listen(
         _handleServerMessage,
         onError: (error) {
-          print('❌ WebSocket 에러: $error');
+          // print('❌ WebSocket 에러: $error');
           _onConnectionLost();
         },
         onDone: () {
-          print('⚠️ WebSocket 연결 종료');
+          // print('⚠️ WebSocket 연결 종료');
           _onConnectionLost();
         },
       );
@@ -64,11 +145,15 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
           _isConnecting = false;
           _reconnectAttempts = 0;
         });
+        // 연결 성공 시 회전 애니메이션 시작
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _connectionController.repeat();
+        });
       }
 
-      print('✅ WebSocket 연결 성공');
+      // print('✅ WebSocket 연결 성공');
     } catch (e) {
-      print('❌ WebSocket 연결 실패: $e');
+      // print('❌ WebSocket 연결 실패: $e');
       _onConnectionLost();
     }
   }
@@ -77,6 +162,9 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
   void _onConnectionLost() {
     if (!mounted) return;
     
+    // 연결 끊김 시 회전 애니메이션 중지
+    _connectionController.stop();
+    
     setState(() {
       _isConnected = false;
       _isConnecting = false;
@@ -84,22 +172,20 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
 
     if (_reconnectAttempts < maxReconnectAttempts) {
       _reconnectAttempts++;
-      print('🔄 재연결 시도 $_reconnectAttempts/$maxReconnectAttempts');
+      // print('🔄 재연결 시도 $_reconnectAttempts/$maxReconnectAttempts');
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) _connectWebSocket();
       });
     } else {
       if (mounted) {
-        setState(() {
-          _messages.add({"role": "ai", "text": "서버 연결이 불안정합니다. 앱을 다시 시작해주세요."});
-        });
+        _addMessage("ai", "서버 연결이 불안정합니다. 앱을 다시 시작해주세요.");
       }
     }
   }
 
   /// 📩 서버 메시지 처리
   void _handleServerMessage(dynamic message) {
-    print('📨 서버 응답: $message');
+    // print('📨 서버 응답: $message');
 
     try {
       final decoded = jsonDecode(message);
@@ -129,10 +215,10 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
 
     try {
       final jsonMsg = jsonEncode(rpcMsg);
-      print('📤 전송할 메시지: $jsonMsg');
+      // print('📤 전송할 메시지: $jsonMsg');
       _channel!.sink.add(jsonMsg);
     } catch (e) {
-      print('❌ 메시지 전송 오류: $e');
+      // print('❌ 메시지 전송 오류: $e');
       _addMessage("ai", "메시지 전송에 실패했습니다.");
     }
   }
@@ -144,7 +230,18 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
     setState(() {
       _showWelcomeCard = false;
       _messages.add({"role": role, "text": text});
+      _messageAnimations.add(false); // 애니메이션 상태 추가
     });
+    
+    // 메시지가 추가된 후 애니메이션 시작
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_messageAnimations.isNotEmpty) {
+        setState(() {
+          _messageAnimations[_messageAnimations.length - 1] = true;
+        });
+      }
+    });
+    
     _scrollToBottom();
   }
 
@@ -178,20 +275,47 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
   }
 
   /// 🧱 메시지 UI
-  Widget _buildMessage(Map<String, String> msg) {
+  Widget _buildMessage(Map<String, String> msg, int index) {
     final isUser = msg["role"] == "user";
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isUser ? const Color(0xFF5B9EE1) : const Color(0xFFE2EEFF),
-          borderRadius: BorderRadius.circular(12),
+    final isAnimated = index < _messageAnimations.length && _messageAnimations[index];
+    
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 400),
+      opacity: isAnimated ? 1.0 : 0.0,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutBack,
+        transform: Matrix4.translationValues(
+          isAnimated ? 0 : (isUser ? 50 : -50),
+          0,
+          0,
         ),
-        child: Text(
-          msg["text"] ?? "",
-          style: TextStyle(color: isUser ? Colors.white : Colors.black87),
+        child: Align(
+          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isUser 
+                ? const Color(0xFF5B9EE1).withValues(alpha: 0.8) 
+                : const Color(0xFFE2EEFF).withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              msg["text"] ?? "",
+              style: TextStyle(
+                color: isUser ? Colors.white : Colors.black87,
+                fontSize: 14,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -203,6 +327,14 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
     _focusNode.dispose();
     _searchController.dispose();
     _scrollController.dispose();
+    _partyIconController.dispose();
+    _connectionController.dispose();
+    
+    // 키워드 애니메이션 컨트롤러들 해제
+    for (final controller in _keywordControllers) {
+      controller.dispose();
+    }
+    
     super.dispose();
   }
 
@@ -229,17 +361,33 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _isConnected
-                            ? Colors.green
-                            : _isConnecting
-                            ? Colors.orange
-                            : Colors.red,
-                      ),
+                    AnimatedBuilder(
+                      animation: _connectionRotation,
+                      builder: (context, child) {
+                        return Transform.rotate(
+                          angle: _isConnected ? _connectionRotation.value * 2 * pi : 0,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _isConnected
+                                  ? Colors.green
+                                  : _isConnecting
+                                  ? Colors.orange
+                                  : Colors.red,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (_isConnected ? Colors.green : _isConnecting ? Colors.orange : Colors.red)
+                                      .withValues(alpha: 0.3),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -272,7 +420,7 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
                     padding: const EdgeInsets.fromLTRB(8, 8, 8, 150),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) =>
-                        _buildMessage(_messages[index]),
+                        _buildMessage(_messages[index], index),
                   ),
                 ),
               ],
@@ -307,17 +455,25 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Color(0xFFDFEFFF),
-              shape: BoxShape.circle,
-            ),
-            child: Image.asset(
-              'assets/images/party_icon.png',
-              width: 86,
-              height: 86,
-            ),
+          AnimatedBuilder(
+            animation: _partyIconScale,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _partyIconScale.value,
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFDFEFFF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Image.asset(
+                    'assets/images/party_icon.png',
+                    width: 86,
+                    height: 86,
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
           const Text(
@@ -341,43 +497,71 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
       bottom: 75,
       child: Column(
         children: [
-                      Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                _buildSuggestionChip("일자리"),
-                _buildSuggestionChip("주거"),
-                _buildSuggestionChip("교육"),
-                _buildSuggestionChip("창업"),
-                _buildSuggestionChip("혜택"),
-                _buildSuggestionChip("지원"),
-                _buildSuggestionChip("금융"),
-                _buildSuggestionChip("문화"),
-                _buildSuggestionChip("건강"),
-                _buildSuggestionChip("환경"),
-              ],
-            ),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _buildAnimatedSuggestionChip("일자리", 0),
+              _buildAnimatedSuggestionChip("주거", 1),
+              _buildAnimatedSuggestionChip("교육", 2),
+              _buildAnimatedSuggestionChip("창업", 3),
+              _buildAnimatedSuggestionChip("혜택", 4),
+              _buildAnimatedSuggestionChip("지원", 5),
+              _buildAnimatedSuggestionChip("금융", 6),
+              _buildAnimatedSuggestionChip("문화", 7),
+              _buildAnimatedSuggestionChip("건강", 8),
+              _buildAnimatedSuggestionChip("환경", 9),
+            ],
+          ),
         ],
       ),
     );
   }
+  
+  Widget _buildAnimatedSuggestionChip(String text, int index) {
+    return AnimatedBuilder(
+      animation: _keywordAnimations[index],
+      builder: (context, child) {
+        // 사인 함수를 사용해서 위아래로 움직이는 애니메이션
+        final value = _keywordAnimations[index].value;
+        final offset = sin(value * 2 * pi) * 4.0; // 4픽셀 위아래 움직임
+        
+        return Transform.translate(
+          offset: Offset(0, offset),
+          child: _buildSuggestionChip(text),
+        );
+      },
+    );
+  }
 
   Widget _buildSuggestionChip(String text) {
-    return GestureDetector(
-      onTap: () => _onSuggestionPressed(text),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.grey[300]!),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _onSuggestionPressed(text),
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey[300]!),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ),
@@ -416,23 +600,42 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
                 ),
               ),
               GestureDetector(
+                onTapDown: (_) => setState(() => _isPressed = true),
+                onTapUp: (_) => setState(() => _isPressed = false),
+                onTapCancel: () => setState(() => _isPressed = false),
                 onTap: _onCompletePressed,
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  transform: Matrix4.translationValues(
+                    0,
+                    _isPressed ? -2 : 0,
+                    0,
+                  ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 16,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF5B9EE1),
-                    borderRadius: BorderRadius.circular(27),
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF5B9EE1).withValues(
+                          alpha: _isPressed ? 0.5 : 0.3,
+                        ),
+                        blurRadius: _isPressed ? 15 : 8,
+                        offset: Offset(0, _isPressed ? 6 : 2),
+                      ),
+                    ],
                   ),
-                  child: const Text(
-                    "완료",
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 150),
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontSize: _isPressed ? 14 : 13,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
+                    child: const Text("완료"),
                   ),
                 ),
               ),
