@@ -63,6 +63,7 @@ flutter:
   assets:
     - assets/images/party_icon.png
     - assets/icons/message-writing.png
+    - assets/icons/chat_bubble.png
     - assets/images/logo.png
 
 

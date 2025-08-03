@@ -13,7 +13,6 @@ class PolicyDetailPage extends StatefulWidget {
 }
 
 class _PolicyDetailPageState extends State<PolicyDetailPage> {
-  bool _isFavorite = false;
 
   @override
   Widget build(BuildContext context) {
@@ -56,17 +55,6 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
               ),
             ),
             actions: [
-              IconButton(
-                onPressed: () {
-                  setState(() {
-                    _isFavorite = !_isFavorite;
-                  });
-                },
-                icon: Icon(
-                  _isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: Colors.white,
-                ),
-              ),
               IconButton(
                 onPressed: () {},
                 icon: const Icon(

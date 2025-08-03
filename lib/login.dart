@@ -99,7 +99,7 @@ class _LoginPageState extends State<LoginPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('로그인', style: TextStyle(fontSize: 16)),
+                      child: const Text('로그인', style: TextStyle(fontSize: 16, color: Colors.white)),
                     ),
                   ),
                   const SizedBox(height: 24),

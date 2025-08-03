@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'login.dart';
 import 'signup.dart';
@@ -17,6 +18,9 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+  late ScrollController _scrollController;
+  Timer? _timer;
+  double _scrollPosition = 0;
   
   final List<Map<String, dynamic>> categories = [
     {
@@ -82,6 +86,39 @@ class _MyHomePageState extends State<MyHomePage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _startAutoScroll();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoScroll() {
+    _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (_scrollController.hasClients && _scrollController.position.hasViewportDimension) {
+        _scrollPosition += 1.0;
+        final maxScroll = _scrollController.position.maxScrollExtent;
+
+        if (_scrollPosition >= maxScroll) {
+          _scrollPosition = 0;
+        }
+
+        _scrollController.animateTo(
+          _scrollPosition,
+          duration: const Duration(milliseconds: 50),
+          curve: Curves.linear,
+        );
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -99,26 +136,8 @@ class _MyHomePageState extends State<MyHomePage> {
       body: SafeArea(
         child: Column(
           children: [
-            // 상단 헤더
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Text(
-                    '홈화면 v',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.code),
-                  ),
-                ],
-              ),
-            ),
+            // 상단 여백 추가
+            SizedBox(height: screenHeight * 0.05),
             
             // 메인 콘텐츠
             Expanded(
@@ -180,22 +199,6 @@ class _MyHomePageState extends State<MyHomePage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.06,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                        children: [
-                          const TextSpan(text: '확인'),
-                          const TextSpan(
-                            text: '!',
-                            style: TextStyle(color: Colors.orange),
-                          ),
-                        ],
-                      ),
-                    ),
                     
                     SizedBox(height: screenHeight * 0.03),
                     
@@ -216,7 +219,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         crossAxisCount: 3,
                         crossAxisSpacing: 8,
                         mainAxisSpacing: 8,
-                        childAspectRatio: screenWidth / (screenHeight * 0.25),
+                        childAspectRatio: 1.2, // 고정된 비율로 변경
                       ),
                       itemCount: categories.length,
                       itemBuilder: (context, index) {
@@ -281,24 +284,25 @@ class _MyHomePageState extends State<MyHomePage> {
                     
                     SizedBox(
                       height: screenHeight * 0.25,
-                      child: PageView.builder(
-                        itemCount: latestPolicies.length,
-                        controller: PageController(
-                          viewportFraction: 0.75, // 화면의 75%만 차지하도록 설정
-                        ),
+                      child: ListView.builder(
+                          controller: _scrollController,
+                          scrollDirection: Axis.horizontal,
+                        itemCount: latestPolicies.length * 3, // 무한 스크롤을 위해 3배로 늘림
                         itemBuilder: (context, index) {
+                          final actualIndex = index % latestPolicies.length;
                           return GestureDetector(
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => PolicyDetailPage(
-                                    policy: latestPolicies[index],
+                                    policy: latestPolicies[actualIndex],
                                   ),
                                 ),
                               );
                             },
                             child: Container(
+                              width: screenWidth * 0.75,
                               margin: const EdgeInsets.symmetric(horizontal: 8),
                               decoration: BoxDecoration(
                                 color: Colors.white,
@@ -343,7 +347,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            latestPolicies[index]['title'],
+                                            latestPolicies[actualIndex]['title'],
                                             style: TextStyle(
                                               fontSize: screenWidth * 0.035,
                                               fontWeight: FontWeight.bold,
@@ -353,7 +357,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                           ),
                                           SizedBox(height: screenHeight * 0.003),
                                           Text(
-                                            latestPolicies[index]['subtitle'],
+                                            latestPolicies[actualIndex]['subtitle'],
                                             style: TextStyle(
                                               fontSize: screenWidth * 0.03,
                                               color: Colors.grey[600],
@@ -372,7 +376,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                               SizedBox(width: screenWidth * 0.008),
                                               Expanded(
                                                 child: Text(
-                                                  latestPolicies[index]['location'],
+                                                  latestPolicies[actualIndex]['location'],
                                                   style: TextStyle(
                                                     fontSize: screenWidth * 0.025,
                                                     color: Colors.grey[500],
@@ -393,16 +397,16 @@ class _MyHomePageState extends State<MyHomePage> {
                         },
                       ),
                     ),
-                    
-                    SizedBox(height: screenHeight * 0.01),
-                  ],
-                ),
-              ),
+
+
+                SizedBox(height: screenHeight * 0.01),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-      
-    );
+      ],
+    ),
+  ),
+);
   }
 }

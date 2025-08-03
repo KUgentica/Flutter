@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'list.dart';
+import 'detail.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({Key? key}) : super(key: key);
@@ -147,6 +148,7 @@ class _SearchPageState extends State<SearchPage> {
     super.initState();
     _loadSearchHistory();
     _searchFocusNode.requestFocus();
+    _showAutoSuggestions(); // 자동으로 추천 정책 표시
   }
 
   @override
@@ -195,6 +197,53 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  // 자동 추천 정책 표시
+  void _showAutoSuggestions() {
+    setState(() {
+      _searchResults = [];
+      _hasSearched = true;
+      
+      // 인기 정책들을 자동으로 표시
+      for (var category in _allPolicies.keys) {
+        _searchResults.addAll(_allPolicies[category]!);
+      }
+      
+      // 최대 6개까지만 표시
+      if (_searchResults.length > 6) {
+        _searchResults = _searchResults.take(6).toList();
+      }
+    });
+  }
+
+  // 실시간 검색
+  void _performSearch(String query) {
+    if (query.trim().isEmpty) {
+      _showAutoSuggestions();
+      return;
+    }
+
+    setState(() {
+      _searchResults = [];
+      _hasSearched = true;
+      
+      // 모든 카테고리에서 검색
+      for (var category in _allPolicies.keys) {
+        for (var policy in _allPolicies[category]!) {
+          if (policy['title'].toString().toLowerCase().contains(query.toLowerCase()) ||
+              policy['description'].toString().toLowerCase().contains(query.toLowerCase()) ||
+              policy['category'].toString().toLowerCase().contains(query.toLowerCase())) {
+            _searchResults.add(policy);
+          }
+        }
+      }
+    });
+    
+    // 검색 기록 저장 (빈 검색어가 아닐 때만)
+    if (query.trim().isNotEmpty) {
+      _saveSearchHistory(query);
+    }
+  }
+
   // 검색 기록 삭제
   Future<void> _deleteSearchHistory(String query) async {
     try {
@@ -223,44 +272,7 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  // 검색 실행
-  void _performSearch(String query) {
-    if (query.trim().isEmpty) return;
 
-    setState(() {
-      _isSearching = true;
-      _hasSearched = true;
-    });
-
-    // 검색 기록 저장
-    _saveSearchHistory(query);
-
-    // 검색 로직 (카테고리 기반 검색)
-    List<Map<String, dynamic>> results = [];
-    
-    for (String category in _allPolicies.keys) {
-      if (category.contains(query) || query.contains(category)) {
-        results.addAll(_allPolicies[category]!);
-      }
-    }
-
-    // 제목이나 설명에서도 검색
-    for (String category in _allPolicies.keys) {
-      for (var policy in _allPolicies[category]!) {
-        if (policy['title'].toString().toLowerCase().contains(query.toLowerCase()) ||
-            policy['description'].toString().toLowerCase().contains(query.toLowerCase())) {
-          if (!results.contains(policy)) {
-            results.add(policy);
-          }
-        }
-      }
-    }
-
-    setState(() {
-      _searchResults = results;
-      _isSearching = false;
-    });
-  }
 
   // 검색 결과로 이동
   void _navigateToSearchResults(String query) {
@@ -287,16 +299,6 @@ class _SearchPageState extends State<SearchPage> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
-        actions: [
-          if (_searchHistory.isNotEmpty)
-            TextButton(
-              onPressed: _clearAllSearchHistory,
-              child: const Text(
-                '전체 삭제',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-        ],
       ),
       body: Column(
         children: [
@@ -330,10 +332,9 @@ class _SearchPageState extends State<SearchPage> {
               onChanged: (value) {
                 setState(() {});
                 if (value.isEmpty) {
-                  setState(() {
-                    _hasSearched = false;
-                    _searchResults = [];
-                  });
+                  _showAutoSuggestions(); // 빈 검색어일 때 추천 정책 표시
+                } else {
+                  _performSearch(value); // 실시간 검색
                 }
               },
               onSubmitted: (value) {
@@ -471,7 +472,9 @@ class _SearchPageState extends State<SearchPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Text(
-            '검색 결과 (${_searchResults.length}개)',
+            _searchController.text.isEmpty 
+                ? '추천 정책 (${_searchResults.length}개)'
+                : '검색 결과 (${_searchResults.length}개)',
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -531,12 +534,14 @@ class _SearchPageState extends State<SearchPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => PolicyListPage(
-                          category: policy['category'],
-                          categoryData: {
-                            'title': policy['category'],
-                            'icon': Icons.policy,
-                            'color': Colors.blue,
+                        builder: (context) => PolicyDetailPage(
+                          policy: {
+                            'title': policy['title'],
+                            'description': policy['description'],
+                            'amount': policy['amount'],
+                            'location': policy['location'],
+                            'deadline': policy['deadline'],
+                            'status': policy['status'],
                           },
                         ),
                       ),

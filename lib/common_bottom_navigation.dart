@@ -19,7 +19,7 @@ class CommonBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
-      notchMargin: 8.0,
+      notchMargin: 4.0,
       color: const Color(0xFFE2EEFF),
       child: SizedBox(
         height: 70,

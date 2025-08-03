@@ -58,11 +58,13 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
         },
       );
 
-      setState(() {
-        _isConnected = true;
-        _isConnecting = false;
-        _reconnectAttempts = 0;
-      });
+      if (mounted) {
+        setState(() {
+          _isConnected = true;
+          _isConnecting = false;
+          _reconnectAttempts = 0;
+        });
+      }
 
       print('✅ WebSocket 연결 성공');
     } catch (e) {
@@ -73,6 +75,8 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
 
   /// 🚨 연결 끊김 시 처리
   void _onConnectionLost() {
+    if (!mounted) return;
+    
     setState(() {
       _isConnected = false;
       _isConnecting = false;
@@ -85,9 +89,11 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
         if (mounted) _connectWebSocket();
       });
     } else {
-      setState(() {
-        _messages.add({"role": "ai", "text": "서버 연결이 불안정합니다. 앱을 다시 시작해주세요."});
-      });
+      if (mounted) {
+        setState(() {
+          _messages.add({"role": "ai", "text": "서버 연결이 불안정합니다. 앱을 다시 시작해주세요."});
+        });
+      }
     }
   }
 
@@ -133,6 +139,8 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
 
   /// 💬 메시지 리스트에 추가
   void _addMessage(String role, String text) {
+    if (!mounted) return;
+    
     setState(() {
       _showWelcomeCard = false;
       _messages.add({"role": role, "text": text});
@@ -306,7 +314,7 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
               shape: BoxShape.circle,
             ),
             child: Image.asset(
-              'assets/images/party_popper.png',
+              'assets/images/party_icon.png',
               width: 86,
               height: 86,
             ),
