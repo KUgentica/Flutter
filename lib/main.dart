@@ -2,6 +2,21 @@ import 'package:flutter/material.dart';
 import 'calendar.dart';
 import 'bookmark.dart';
 import 'chatbot_screen.dart';
+import 'login.dart';
+import 'signup.dart';
+import 'restore.dart';
+import 'list.dart';
+import 'detail.dart';
+import 'search.dart';
+import 'home.dart';
+import 'pages/more_page.dart';
+import 'pages/account_info_page.dart';
+import 'pages/change_password_page.dart';
+import 'pages/change_email_page.dart';
+import 'pages/qna_page.dart';
+import 'pages/notice_page.dart';
+import 'pages/settings_page.dart';
+import 'pages/terms_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +40,22 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Work Sans',
       ),
-      home: const BookmarkScreen(),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/signup': (context) => const SignupPage(),
+        '/restore': (context) => const RestorePage(),
+        '/home': (context) => const MyHomePage(),
+        '/more': (context) => const MorePage(),
+        '/account': (context) => const AccountInfoPage(),
+        '/change-password': (context) => const ChangePasswordPage(),
+        '/change-email': (context) => const ChangeEmailPage(),
+        '/qna': (context) => const QnaPage(),
+        '/notice': (context) => const NoticePage(),
+        '/settings': (context) => const SettingsPage(),
+        '/terms': (context) => const TermsPage(),
+      },
+      home: const MyHomePage(),
     );
   }
 }

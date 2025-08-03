@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'bookmark.dart';
 import 'calendar.dart';
+import 'common_bottom_navigation.dart';
 
 class ChatBotScreen extends StatefulWidget {
   const ChatBotScreen({super.key});
@@ -19,7 +21,126 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
 
   bool _showWelcomeCard = true;
   final List<Map<String, String>> _messages = [];
+  bool _isConnected = false;
+  bool _isConnecting = false;
+  int _reconnectAttempts = 0;
+  static const int maxReconnectAttempts = 3;
 
+  WebSocketChannel? _channel;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectWebSocket();
+  }
+
+  /// 🔌 WebSocket 연결
+  void _connectWebSocket() {
+    if (_isConnecting) return;
+
+    setState(() => _isConnecting = true);
+
+    const String serverUrl = 'ws://10.0.2.2:3000';
+    print('🔌 WebSocket 연결 시도: $serverUrl');
+
+    try {
+      _channel = IOWebSocketChannel.connect(serverUrl);
+
+      _channel!.stream.listen(
+        _handleServerMessage,
+        onError: (error) {
+          print('❌ WebSocket 에러: $error');
+          _onConnectionLost();
+        },
+        onDone: () {
+          print('⚠️ WebSocket 연결 종료');
+          _onConnectionLost();
+        },
+      );
+
+      setState(() {
+        _isConnected = true;
+        _isConnecting = false;
+        _reconnectAttempts = 0;
+      });
+
+      print('✅ WebSocket 연결 성공');
+    } catch (e) {
+      print('❌ WebSocket 연결 실패: $e');
+      _onConnectionLost();
+    }
+  }
+
+  /// 🚨 연결 끊김 시 처리
+  void _onConnectionLost() {
+    setState(() {
+      _isConnected = false;
+      _isConnecting = false;
+    });
+
+    if (_reconnectAttempts < maxReconnectAttempts) {
+      _reconnectAttempts++;
+      print('🔄 재연결 시도 $_reconnectAttempts/$maxReconnectAttempts');
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) _connectWebSocket();
+      });
+    } else {
+      setState(() {
+        _messages.add({"role": "ai", "text": "서버 연결이 불안정합니다. 앱을 다시 시작해주세요."});
+      });
+    }
+  }
+
+  /// 📩 서버 메시지 처리
+  void _handleServerMessage(dynamic message) {
+    print('📨 서버 응답: $message');
+
+    try {
+      final decoded = jsonDecode(message);
+      if (decoded is Map && decoded.containsKey("result")) {
+        _addMessage("ai", decoded["result"].toString());
+        return;
+      }
+    } catch (_) {
+      // JSON이 아닐 경우 그냥 문자열로 출력
+    }
+
+    _addMessage("ai", message.toString());
+  }
+
+  /// 📤 메시지 전송
+  Future<void> _sendToAgentica(String message) async {
+    if (!_isConnected || _channel == null) {
+      _addMessage("ai", "서버에 연결되지 않았습니다.");
+      return;
+    }
+
+    final rpcMsg = {
+      "target": "chat",
+      "method": "send",
+      "parameters": {"message": message},
+    };
+
+    try {
+      final jsonMsg = jsonEncode(rpcMsg);
+      print('📤 전송할 메시지: $jsonMsg');
+      _channel!.sink.add(jsonMsg);
+    } catch (e) {
+      print('❌ 메시지 전송 오류: $e');
+      _addMessage("ai", "메시지 전송에 실패했습니다.");
+    }
+  }
+
+  /// 💬 메시지 리스트에 추가
+  void _addMessage(String role, String text) {
+    setState(() {
+      _showWelcomeCard = false;
+      _messages.add({"role": role, "text": text});
+    });
+    _scrollToBottom();
+  }
+
+  /// ⬇️ 스크롤 맨 아래로 이동
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -32,58 +153,23 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
     });
   }
 
-  Future<String> _sendToAgentica(String message) async {
-    final url = Uri.parse("http://10.0.2.2:3000/chat");
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"message": message}),
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data["reply"] ?? "(응답 없음)";
-      } else {
-        return "서버 오류: ${response.statusCode}";
-      }
-    } catch (e) {
-      return "연결 실패: $e";
-    }
-  }
-
-  void _onCompletePressed() async {
+  /// 완료 버튼 클릭
+  void _onCompletePressed() {
     final text = _searchController.text.trim();
     if (text.isEmpty) return;
-
-    setState(() {
-      _showWelcomeCard = false;
-      _messages.add({"role": "user", "text": text});
-    });
-
     _searchController.clear();
     FocusScope.of(context).unfocus();
-
-    final reply = await _sendToAgentica(text);
-
-    setState(() {
-      _messages.add({"role": "ai", "text": reply});
-    });
-    _scrollToBottom();
+    _addMessage("user", text);
+    _sendToAgentica(text);
   }
 
+  /// 추천 질문 클릭
   void _onSuggestionPressed(String suggestion) {
-    setState(() {
-      _showWelcomeCard = false;
-      _messages.add({"role": "user", "text": suggestion});
-    });
-    _sendToAgentica(suggestion).then((reply) {
-      setState(() {
-        _messages.add({"role": "ai", "text": reply});
-      });
-      _scrollToBottom();
-    });
+    _addMessage("user", suggestion);
+    _sendToAgentica(suggestion);
   }
 
+  /// 🧱 메시지 UI
   Widget _buildMessage(Map<String, String> msg) {
     final isUser = msg["role"] == "user";
     return Align(
@@ -96,310 +182,256 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
-          msg["text"]!,
-          style: TextStyle(
-            color: isUser ? Colors.white : const Color(0xFF1A1B1C),
-            fontSize: 14,
-          ),
+          msg["text"] ?? "",
+          style: TextStyle(color: isUser ? Colors.white : Colors.black87),
         ),
       ),
     );
   }
 
   @override
+  void dispose() {
+    _channel?.sink.close();
+    _focusNode.dispose();
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          children: [
-            // 헤더
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: const Text(
-                'AI 알리미',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A1B1C),
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            // 웰컴 카드
-            if (_showWelcomeCard)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(40),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFDFEFFF),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Image.asset(
-                        'assets/images/party_popper.png',
-                        width: 86,
-                        height: 86,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '청년알림E에 오신 것을\n환영합니다',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF1A2530),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            // 메시지 리스트
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  return _buildMessage(_messages[index]);
-                },
-              ),
-            ),
-            // 추천 질문들
-            if (_showWelcomeCard)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    '민생지원금 신청',
-                    '청년 지원금 안내',
-                    '일자리 정보',
-                    '정책 문의',
-                  ].map((suggestion) => GestureDetector(
-                    onTap: () => _onSuggestionPressed(suggestion),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FA),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFE9ECEF)),
-                      ),
-                      child: Text(
-                        suggestion,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF1A1B1C),
-                        ),
-                      ),
-                    ),
-                  )).toList(),
-                ),
-              ),
-            
-            // 검색 입력
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Material(
-                elevation: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          focusNode: _focusNode,
-                          decoration: InputDecoration(
-                            hintText: '메시지를 입력하세요...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(25),
-                              borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(25),
-                              borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(25),
-                              borderSide: const BorderSide(color: Color(0xFF5B9EE1)),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          ),
-                          onSubmitted: (_) => _onCompletePressed(),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: _onCompletePressed,
-                        child: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF5B9EE1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.send,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // 하단 네비게이션
-            _buildBottomNavigation(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNavigation() {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8.0,
-      color: const Color(0xFFE2EEFF),
-      child: SizedBox(
-        height: 70,
         child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            Column(
               children: [
-                _buildNavItem(Icons.home, "홈", 0),
-                _buildNavItem(Icons.star, "즐겨찾기", 1),
-                const SizedBox(width: 60),
-                _buildNavItem(Icons.calendar_today, "캘린더", 3),
-                _buildNavItem(Icons.more_horiz, "더보기", 4),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'AI 알리미',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF333333),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _isConnected
+                            ? Colors.green
+                            : _isConnecting
+                            ? Colors.orange
+                            : Colors.red,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _isConnected
+                          ? '연결됨'
+                          : _isConnecting
+                          ? '연결 중...'
+                          : '연결 안됨',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _isConnected
+                            ? Colors.green
+                            : _isConnecting
+                            ? Colors.orange
+                            : Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                if (_showWelcomeCard) ...[
+                  _buildWelcomeCard(),
+                  const SizedBox(height: 10),
+                ],
+
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 150),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) =>
+                        _buildMessage(_messages[index]),
+                  ),
+                ),
               ],
             ),
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
-              top: _selectedIndex == 2 ? -12 : -7,
-              child: GestureDetector(
-                onTap: () => _onItemTapped(2),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _selectedIndex == 2
-                          ? const Color(0xFF6498E2)
-                          : const Color(0xFFB0C9EE),
-                      width: 5,
+            if (_showWelcomeCard) _buildSuggestions(),
+            _buildInputField(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: CommonBottomNavigation(
+        selectedIndex: _selectedIndex,
+        onItemTapped: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          NavigationHelper.navigateToScreen(context, index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildWelcomeCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Color(0xFFDFEFFF),
+              shape: BoxShape.circle,
+            ),
+            child: Image.asset(
+              'assets/images/party_popper.png',
+              width: 86,
+              height: 86,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '청년알림E와 대화를 시작해보세요!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF1A2530),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestions() {
+    return Positioned(
+      left: 16,
+      right: 16,
+      bottom: 75,
+      child: Column(
+        children: [
+                      Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildSuggestionChip("일자리"),
+                _buildSuggestionChip("주거"),
+                _buildSuggestionChip("교육"),
+                _buildSuggestionChip("창업"),
+                _buildSuggestionChip("혜택"),
+                _buildSuggestionChip("지원"),
+                _buildSuggestionChip("금융"),
+                _buildSuggestionChip("문화"),
+                _buildSuggestionChip("건강"),
+                _buildSuggestionChip("환경"),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestionChip(String text) {
+    return GestureDetector(
+      onTap: () => _onSuggestionPressed(text),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[700],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputField() {
+    return Positioned(
+      left: 16,
+      right: 16,
+      bottom: 15,
+      child: Material(
+        elevation: 2,
+        borderRadius: BorderRadius.circular(30),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  focusNode: _focusNode,
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: "무엇이 궁금하신가요?",
+                    prefixIcon: Icon(Icons.search),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 8,
                     ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.asset(
-                        'assets/icons/chat_bubble.png',
-                        width: 24,
-                        height: 24,
-                        fit: BoxFit.contain,
-                        color: _selectedIndex == 2
-                            ? Colors.black
-                            : const Color(0xFF888888),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "chat-bot",
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: _selectedIndex == 2
-                              ? Colors.black
-                              : const Color(0xFF888888),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    final isSelected = _selectedIndex == index;
-    return GestureDetector(
-      onTap: () => _onItemTapped(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        transform: Matrix4.translationValues(0, isSelected ? -5 : 0, 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.black : const Color(0xFF61646B),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Colors.black : const Color(0xFF61646B),
+              GestureDetector(
+                onTap: _onCompletePressed,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF5B9EE1),
+                    borderRadius: BorderRadius.circular(27),
+                  ),
+                  child: const Text(
+                    "완료",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-
-  void _onItemTapped(int index) {
-    if (index == 1) {
-      // 즐겨찾기 탭을 누르면 BookmarkScreen으로 이동
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const BookmarkScreen()),
-      );
-    } else if (index == 3) {
-      // 캘린더 탭을 누르면 CalendarScreen으로 이동
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const CalendarScreen()),
-      );
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
-  }
-} 
+}

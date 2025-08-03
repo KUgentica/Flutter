@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'calendar.dart';
 import 'chatbot_screen.dart';
+import 'common_bottom_navigation.dart';
 
 class BookmarkScreen extends StatefulWidget {
   const BookmarkScreen({super.key});
@@ -108,6 +109,15 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      bottomNavigationBar: CommonBottomNavigation(
+        selectedIndex: _selectedIndex,
+        onItemTapped: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          NavigationHelper.navigateToScreen(context, index);
+        },
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -197,8 +207,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                   ? _buildDetailView()
                   : _buildBookmarkList(),
             ),
-            // 하단 네비게이션
-            _buildBottomNavigation(),
+            // 하단 네비게이션은 CommonBottomNavigation으로 대체됨
           ],
         ),
       ),
@@ -587,127 +596,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
     );
   }
 
-  Widget _buildBottomNavigation() {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8.0,
-      color: const Color(0xFFE2EEFF),
-      child: SizedBox(
-        height: 70,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(Icons.home, "홈", 0),
-                _buildNavItem(Icons.star, "즐겨찾기", 1),
-                const SizedBox(width: 60),
-                _buildNavItem(Icons.calendar_today, "캘린더", 3),
-                _buildNavItem(Icons.more_horiz, "더보기", 4),
-              ],
-            ),
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
-              top: _selectedIndex == 2 ? -12 : -7,
-              child: GestureDetector(
-                onTap: () => _onItemTapped(2),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _selectedIndex == 2
-                          ? const Color(0xFF6498E2)
-                          : const Color(0xFFB0C9EE),
-                      width: 5,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.asset(
-                        'assets/icons/chat_bubble.png',
-                        width: 24,
-                        height: 24,
-                        fit: BoxFit.contain,
-                        color: _selectedIndex == 2
-                            ? Colors.black
-                            : const Color(0xFF888888),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "chat-bot",
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: _selectedIndex == 2
-                              ? Colors.black
-                              : const Color(0xFF888888),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    final isSelected = _selectedIndex == index;
-    return GestureDetector(
-      onTap: () => _onItemTapped(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        transform: Matrix4.translationValues(0, isSelected ? -5 : 0, 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.black : const Color(0xFF61646B),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Colors.black : const Color(0xFF61646B),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _onItemTapped(int index) {
-    if (index == 2) {
-      // 챗봇 탭을 누르면 ChatBotScreen으로 이동
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const ChatBotScreen()),
-      );
-    } else if (index == 3) {
-      // 캘린더 탭을 누르면 CalendarScreen으로 이동
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const CalendarScreen()),
-      );
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
-  }
+  // 기존 네비게이션 바 메서드들은 CommonBottomNavigation으로 대체됨
 }
 
 class BookmarkItem {
