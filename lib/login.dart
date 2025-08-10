@@ -11,6 +11,32 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscureText = true;
+  bool _isEmailFocused = false;
+  bool _isPasswordFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_onEmailChanged);
+    _passwordController.addListener(_onPasswordChanged);
+  }
+
+  @override
+  void dispose() {
+    _emailController.removeListener(_onEmailChanged);
+    _passwordController.removeListener(_onPasswordChanged);
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _onEmailChanged() {
+    setState(() {});
+  }
+
+  void _onPasswordChanged() {
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,64 +60,75 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 32),
-                  TextField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      hintText: 'www.uihut@gmail.com',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                  Focus(
+                    onFocusChange: (hasFocus) {
+                      setState(() {
+                        _isEmailFocused = hasFocus;
+                      });
+                    },
+                    child: TextField(
+                      controller: _emailController,
+                      style: TextStyle(color: Colors.grey[400]),
+                      decoration: InputDecoration(
+                        hintText: _isEmailFocused || _emailController.text.isNotEmpty 
+                            ? null 
+                            : 'www.uihut@gmail.com',
+                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[200],
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                       ),
-                      filled: true,
-                      fillColor: Colors.grey[200],
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _obscureText,
-                    decoration: InputDecoration(
-                      hintText: '**********',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[200],
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscureText ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () {
-                          setState(() {
-                            _obscureText = !_obscureText;
-                          });
-                        },
+                  Focus(
+                    onFocusChange: (hasFocus) {
+                      setState(() {
+                        _isPasswordFocused = hasFocus;
+                      });
+                    },
+                    child: TextField(
+                      controller: _passwordController,
+                      obscureText: _obscureText,
+                      style: TextStyle(color: Colors.grey[400]),
+                      decoration: InputDecoration(
+                        hintText: _isPasswordFocused || _passwordController.text.isNotEmpty 
+                            ? null 
+                            : '**********',
+                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[200],
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureText ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.grey[600],
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscureText = !_obscureText;
+                            });
+                          },
+                          tooltip: _obscureText ? '비밀번호 보기' : '비밀번호 숨기기',
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/restore');
-                        },
-                        child: const Text(
-                          '비밀번호를 잊으셨습니까?',
-                          style: TextStyle(color: Colors.blue, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/home');
+                        Navigator.pushReplacementNamed(context, '/onboarding');
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,

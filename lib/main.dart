@@ -9,6 +9,7 @@ import 'list.dart';
 import 'detail.dart';
 import 'search.dart';
 import 'home.dart';
+import 'onboarding_screen.dart';
 import 'pages/more_page.dart';
 import 'pages/account_info_page.dart';
 import 'pages/change_password_page.dart';
@@ -45,6 +46,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/signup': (context) => const SignupPage(),
         '/restore': (context) => const RestorePage(),
+        '/onboarding': (context) => const OnboardingScreen(),
         '/home': (context) => const MyHomePage(),
         '/more': (context) => const MorePage(),
         '/account': (context) => const AccountInfoPage(),

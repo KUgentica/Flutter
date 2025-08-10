@@ -291,7 +291,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         },
         style:
-            baseStyle ?? const TextStyle(fontSize: 14, color: Colors.black87),
+        baseStyle ?? const TextStyle(fontSize: 14, color: Colors.black87),
         linkStyle: const TextStyle(decoration: TextDecoration.underline),
       );
     }
@@ -311,8 +311,8 @@ class _ChatBotScreenState extends State<ChatBotScreen>
         final items = (obj["items"] as List)
             .map(
               (e) =>
-                  PolicyCardModel.fromJson(Map<String, dynamic>.from(e as Map)),
-            )
+              PolicyCardModel.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
             .toList();
         if (items.isNotEmpty) {
           return PolicyCardsMessage(items: items, previewCount: 3);
@@ -365,9 +365,9 @@ class _ChatBotScreenState extends State<ChatBotScreen>
             // ⬇️ 여기 변경: AI 메시지에 카드 렌더 적용
             child: isUser
                 ? Text(
-                    msg["text"] ?? "",
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                  )
+              msg["text"] ?? "",
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            )
                 : _buildAiMessageOrCards(msg["text"] ?? ""),
           ),
         ),
@@ -435,12 +435,12 @@ class _ChatBotScreenState extends State<ChatBotScreen>
                               boxShadow: [
                                 BoxShadow(
                                   color:
-                                      (_isConnected
-                                              ? Colors.green
-                                              : _isConnecting
-                                              ? Colors.orange
-                                              : Colors.red)
-                                          .withValues(alpha: 0.3),
+                                  (_isConnected
+                                      ? Colors.green
+                                      : _isConnecting
+                                      ? Colors.orange
+                                      : Colors.red)
+                                      .withValues(alpha: 0.3),
                                   blurRadius: 4,
                                   spreadRadius: 1,
                                 ),
@@ -842,9 +842,9 @@ class PolicyCardsMessage extends StatelessWidget {
                     onPressed: p.link.isEmpty
                         ? null
                         : () => launchUrlString(
-                            p.link,
-                            mode: LaunchMode.externalApplication,
-                          ),
+                      p.link,
+                      mode: LaunchMode.externalApplication,
+                    ),
                     icon: const Icon(Icons.open_in_new),
                     label: const Text('자세히 보기 / 신청하기'),
                   ),
