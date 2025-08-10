@@ -5,6 +5,12 @@ import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'common_bottom_navigation.dart';
 
+// ⬇️ 링크 클릭을 위해 추가
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_linkify/flutter_linkify.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
+
 class ChatBotScreen extends StatefulWidget {
   const ChatBotScreen({super.key});
 
@@ -12,7 +18,8 @@ class ChatBotScreen extends StatefulWidget {
   State<ChatBotScreen> createState() => _ChatBotScreenState();
 }
 
-class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateMixin {
+class _ChatBotScreenState extends State<ChatBotScreen>
+    with TickerProviderStateMixin {
   int _selectedIndex = 2;
   final FocusNode _focusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
@@ -24,23 +31,23 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
   bool _isConnecting = false;
   int _reconnectAttempts = 0;
   static const int maxReconnectAttempts = 3;
-  
+
   // 완료 버튼 터치 효과
   bool _isPressed = false;
-  
+
   // 메시지 애니메이션을 위한 변수들
   final List<bool> _messageAnimations = [];
-  
+
   // 연결 상태 애니메이션
   late AnimationController _connectionController;
   late Animation<double> _connectionRotation;
 
   WebSocketChannel? _channel;
-  
+
   // 폭죽 아이콘 애니메이션
   late AnimationController _partyIconController;
   late Animation<double> _partyIconScale;
-  
+
   // 키워드 애니메이션 컨트롤러들
   late List<AnimationController> _keywordControllers;
   late List<Animation<double>> _keywordAnimations;
@@ -52,68 +59,57 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
     _initializeConnectionAnimation();
     _connectWebSocket();
   }
-  
+
   void _initializePartyIconAnimation() {
     _partyIconController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
-    
-    _partyIconScale = Tween<double>(
-      begin: 1.0,
-      end: 1.3,
-    ).animate(CurvedAnimation(
-      parent: _partyIconController,
-      curve: Curves.elasticOut,
-    ));
-    
+
+    _partyIconScale = Tween<double>(begin: 1.0, end: 1.3).animate(
+      CurvedAnimation(parent: _partyIconController, curve: Curves.elasticOut),
+    );
+
     // 애니메이션 자동 반복
     _partyIconController.repeat(reverse: true);
-    
+
     // 키워드 애니메이션 초기화
     _initializeKeywordAnimations();
   }
-  
+
   void _initializeKeywordAnimations() {
     _keywordControllers = [];
     _keywordAnimations = [];
-    
+
     for (int i = 0; i < 10; i++) {
       final controller = AnimationController(
         duration: Duration(milliseconds: 2000 + (i * 200)),
         vsync: this,
       );
-      
+
       final animation = Tween<double>(
         begin: 0.0,
         end: 1.0,
-      ).animate(CurvedAnimation(
-        parent: controller,
-        curve: Curves.easeInOut,
-      ));
-      
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut));
+
       _keywordControllers.add(controller);
       _keywordAnimations.add(animation);
-      
-          // 각 키워드마다 다른 타이밍으로 반복 애니메이션
-    controller.repeat();
-  }
-}
 
-void _initializeConnectionAnimation() {
-  _connectionController = AnimationController(
-    duration: const Duration(seconds: 2),
-    vsync: this,
-  );
-  
-  _connectionRotation = Tween<double>(
-    begin: 0.0,
-    end: 1.0,
-  ).animate(CurvedAnimation(
-    parent: _connectionController,
-    curve: Curves.linear,
-  ));
-}
+      // 각 키워드마다 다른 타이밍으로 반복 애니메이션
+      controller.repeat();
+    }
+  }
+
+  void _initializeConnectionAnimation() {
+    _connectionController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+
+    _connectionRotation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _connectionController, curve: Curves.linear),
+    );
+  }
 
   /// 🔌 WebSocket 연결
   void _connectWebSocket() {
@@ -122,7 +118,6 @@ void _initializeConnectionAnimation() {
     setState(() => _isConnecting = true);
 
     const String serverUrl = 'ws://10.0.2.2:3000';
-    // print('🔌 WebSocket 연결 시도: $serverUrl');
 
     try {
       _channel = IOWebSocketChannel.connect(serverUrl);
@@ -130,11 +125,9 @@ void _initializeConnectionAnimation() {
       _channel!.stream.listen(
         _handleServerMessage,
         onError: (error) {
-          // print('❌ WebSocket 에러: $error');
           _onConnectionLost();
         },
         onDone: () {
-          // print('⚠️ WebSocket 연결 종료');
           _onConnectionLost();
         },
       );
@@ -150,10 +143,7 @@ void _initializeConnectionAnimation() {
           _connectionController.repeat();
         });
       }
-
-      // print('✅ WebSocket 연결 성공');
     } catch (e) {
-      // print('❌ WebSocket 연결 실패: $e');
       _onConnectionLost();
     }
   }
@@ -161,10 +151,10 @@ void _initializeConnectionAnimation() {
   /// 🚨 연결 끊김 시 처리
   void _onConnectionLost() {
     if (!mounted) return;
-    
+
     // 연결 끊김 시 회전 애니메이션 중지
     _connectionController.stop();
-    
+
     setState(() {
       _isConnected = false;
       _isConnecting = false;
@@ -172,7 +162,6 @@ void _initializeConnectionAnimation() {
 
     if (_reconnectAttempts < maxReconnectAttempts) {
       _reconnectAttempts++;
-      // print('🔄 재연결 시도 $_reconnectAttempts/$maxReconnectAttempts');
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) _connectWebSocket();
       });
@@ -185,8 +174,6 @@ void _initializeConnectionAnimation() {
 
   /// 📩 서버 메시지 처리
   void _handleServerMessage(dynamic message) {
-    // print('📨 서버 응답: $message');
-
     try {
       final decoded = jsonDecode(message);
       if (decoded is Map && decoded.containsKey("result")) {
@@ -215,10 +202,8 @@ void _initializeConnectionAnimation() {
 
     try {
       final jsonMsg = jsonEncode(rpcMsg);
-      // print('📤 전송할 메시지: $jsonMsg');
       _channel!.sink.add(jsonMsg);
     } catch (e) {
-      // print('❌ 메시지 전송 오류: $e');
       _addMessage("ai", "메시지 전송에 실패했습니다.");
     }
   }
@@ -226,13 +211,13 @@ void _initializeConnectionAnimation() {
   /// 💬 메시지 리스트에 추가
   void _addMessage(String role, String text) {
     if (!mounted) return;
-    
+
     setState(() {
       _showWelcomeCard = false;
       _messages.add({"role": role, "text": text});
       _messageAnimations.add(false); // 애니메이션 상태 추가
     });
-    
+
     // 메시지가 추가된 후 애니메이션 시작
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_messageAnimations.isNotEmpty) {
@@ -241,7 +226,7 @@ void _initializeConnectionAnimation() {
         });
       }
     });
-    
+
     _scrollToBottom();
   }
 
@@ -274,11 +259,80 @@ void _initializeConnectionAnimation() {
     _sendToAgentica(suggestion);
   }
 
+  // ⬇️ AI 메시지(링크/마크다운 or 정책카드) 렌더러
+  Widget _buildAssistantRich(String text, {TextStyle? baseStyle}) {
+    // 마크다운 링크가 있으면 Markdown으로 처리
+    final hasMarkdownLink = RegExp(
+      r'\[(.*?)\]\((https?:\/\/[^\s)]+)\)',
+    ).hasMatch(text);
+    if (hasMarkdownLink) {
+      return MarkdownBody(
+        data: text,
+        selectable: true,
+        softLineBreak: true,
+        styleSheet: MarkdownStyleSheet(
+          p: baseStyle ?? const TextStyle(fontSize: 14, color: Colors.black87),
+        ),
+        onTapLink: (_, href, __) async {
+          if (href == null) return;
+          await launchUrlString(href, mode: LaunchMode.externalApplication);
+        },
+      );
+    }
+
+    // 일반 URL만 있으면 Linkify로 자동 링크화
+    final hasUrl = RegExp(r'https?://').hasMatch(text);
+    if (hasUrl) {
+      return Linkify(
+        text: text,
+        options: const LinkifyOptions(humanize: false),
+        onOpen: (link) async {
+          final uri = Uri.parse(link.url);
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        },
+        style:
+            baseStyle ?? const TextStyle(fontSize: 14, color: Colors.black87),
+        linkStyle: const TextStyle(decoration: TextDecoration.underline),
+      );
+    }
+
+    // 링크 없으면 기본 Text
+    return Text(
+      text,
+      style: baseStyle ?? const TextStyle(fontSize: 14, color: Colors.black87),
+    );
+  }
+
+  // ⬇️ 정책카드 JSON이면 카드로, 아니면 기존 텍스트로
+  Widget _buildAiMessageOrCards(String text) {
+    try {
+      final obj = jsonDecode(text);
+      if (obj is Map && obj["type"] == "policy_cards" && obj["items"] is List) {
+        final items = (obj["items"] as List)
+            .map(
+              (e) =>
+                  PolicyCardModel.fromJson(Map<String, dynamic>.from(e as Map)),
+            )
+            .toList();
+        if (items.isNotEmpty) {
+          return PolicyCardsMessage(items: items, previewCount: 3);
+        }
+      }
+    } catch (_) {
+      // JSON 아님 → 기존 렌더
+    }
+    return _buildAssistantRich(
+      text,
+      baseStyle: const TextStyle(color: Colors.black87, fontSize: 14),
+    );
+  }
+
   /// 🧱 메시지 UI
   Widget _buildMessage(Map<String, String> msg, int index) {
     final isUser = msg["role"] == "user";
-    final isAnimated = index < _messageAnimations.length && _messageAnimations[index];
-    
+    final isAnimated =
+        index < _messageAnimations.length && _messageAnimations[index];
+
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 400),
       opacity: isAnimated ? 1.0 : 0.0,
@@ -296,9 +350,9 @@ void _initializeConnectionAnimation() {
             margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isUser 
-                ? const Color(0xFF5B9EE1).withValues(alpha: 0.8) 
-                : const Color(0xFFE2EEFF).withValues(alpha: 0.6),
+              color: isUser
+                  ? const Color(0xFF5B9EE1).withValues(alpha: 0.8)
+                  : const Color(0xFFE2EEFF).withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -308,13 +362,13 @@ void _initializeConnectionAnimation() {
                 ),
               ],
             ),
-            child: Text(
-              msg["text"] ?? "",
-              style: TextStyle(
-                color: isUser ? Colors.white : Colors.black87,
-                fontSize: 14,
-              ),
-            ),
+            // ⬇️ 여기 변경: AI 메시지에 카드 렌더 적용
+            child: isUser
+                ? Text(
+                    msg["text"] ?? "",
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  )
+                : _buildAiMessageOrCards(msg["text"] ?? ""),
           ),
         ),
       ),
@@ -329,12 +383,12 @@ void _initializeConnectionAnimation() {
     _scrollController.dispose();
     _partyIconController.dispose();
     _connectionController.dispose();
-    
+
     // 키워드 애니메이션 컨트롤러들 해제
     for (final controller in _keywordControllers) {
       controller.dispose();
     }
-    
+
     super.dispose();
   }
 
@@ -365,7 +419,9 @@ void _initializeConnectionAnimation() {
                       animation: _connectionRotation,
                       builder: (context, child) {
                         return Transform.rotate(
-                          angle: _isConnected ? _connectionRotation.value * 2 * pi : 0,
+                          angle: _isConnected
+                              ? _connectionRotation.value * 2 * pi
+                              : 0,
                           child: Container(
                             width: 8,
                             height: 8,
@@ -378,8 +434,13 @@ void _initializeConnectionAnimation() {
                                   : Colors.red,
                               boxShadow: [
                                 BoxShadow(
-                                  color: (_isConnected ? Colors.green : _isConnecting ? Colors.orange : Colors.red)
-                                      .withValues(alpha: 0.3),
+                                  color:
+                                      (_isConnected
+                                              ? Colors.green
+                                              : _isConnecting
+                                              ? Colors.orange
+                                              : Colors.red)
+                                          .withValues(alpha: 0.3),
                                   blurRadius: 4,
                                   spreadRadius: 1,
                                 ),
@@ -517,7 +578,7 @@ void _initializeConnectionAnimation() {
       ),
     );
   }
-  
+
   Widget _buildAnimatedSuggestionChip(String text, int index) {
     return AnimatedBuilder(
       animation: _keywordAnimations[index],
@@ -525,7 +586,7 @@ void _initializeConnectionAnimation() {
         // 사인 함수를 사용해서 위아래로 움직이는 애니메이션
         final value = _keywordAnimations[index].value;
         final offset = sin(value * 2 * pi) * 4.0; // 4픽셀 위아래 움직임
-        
+
         return Transform.translate(
           offset: Offset(0, offset),
           child: _buildSuggestionChip(text),
@@ -620,9 +681,9 @@ void _initializeConnectionAnimation() {
                     borderRadius: BorderRadius.circular(25),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF5B9EE1).withValues(
-                          alpha: _isPressed ? 0.5 : 0.3,
-                        ),
+                        color: const Color(
+                          0xFF5B9EE1,
+                        ).withValues(alpha: _isPressed ? 0.5 : 0.3),
                         blurRadius: _isPressed ? 15 : 8,
                         offset: Offset(0, _isPressed ? 6 : 2),
                       ),
@@ -645,4 +706,305 @@ void _initializeConnectionAnimation() {
       ),
     );
   }
+}
+
+// ================== 아래부터: 정책 카드 UI 모듈 ==================
+
+class PolicyCardModel {
+  final String id;
+  final String title;
+  final String summary;
+  final String region;
+  final String period;
+  final String ageRange;
+  final String incomeRange;
+  final String supportScale;
+  final String link;
+
+  PolicyCardModel({
+    required this.id,
+    required this.title,
+    required this.summary,
+    required this.region,
+    required this.period,
+    required this.ageRange,
+    required this.incomeRange,
+    required this.supportScale,
+    required this.link,
+  });
+
+  factory PolicyCardModel.fromJson(Map<String, dynamic> j) => PolicyCardModel(
+    id: (j['id'] ?? '').toString(),
+    title: (j['title'] ?? '').toString(),
+    summary: (j['summary'] ?? '').toString(),
+    region: (j['region'] ?? '전국').toString(),
+    period: (j['period'] ?? '정보 없음').toString(),
+    ageRange: (j['ageRange'] ?? '제한 없음').toString(),
+    incomeRange: (j['incomeRange'] ?? '제한 없음').toString(),
+    supportScale: (j['supportScale'] ?? '정보 없음').toString(),
+    link: (j['link'] ?? '').toString(),
+  );
+}
+
+class PolicyCardsMessage extends StatelessWidget {
+  final List<PolicyCardModel> items;
+  final int previewCount;
+
+  const PolicyCardsMessage({
+    super.key,
+    required this.items,
+    this.previewCount = 3,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final display = items.take(previewCount).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final p in display) ...[
+          _PolicyPreviewCard(
+            data: p,
+            onTap: () => _showPolicyDetailSheet(context, p),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (items.length > previewCount)
+          Text(
+            '외 ${items.length - previewCount}건 더 있음 · 키워드로 다시 물어보면 더 좁혀드려요.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+          ),
+      ],
+    );
+  }
+
+  void _showPolicyDetailSheet(BuildContext context, PolicyCardModel p) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          builder: (_, controller) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: ListView(
+                controller: controller,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 20,
+                        color: Color(0xFF5B9EE1),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '정책 정보',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    p.title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _Labeled('한 눈에 보는 정책 요약', p.summary),
+                  const SizedBox(height: 12),
+                  _SectionDivider(),
+                  _Labeled('신청 기간', p.period),
+                  _Labeled('지역', p.region),
+                  _Labeled('연령', p.ageRange),
+                  _Labeled('소득', p.incomeRange),
+                  _Labeled('지원 규모', p.supportScale),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: p.link.isEmpty
+                        ? null
+                        : () => launchUrlString(
+                            p.link,
+                            mode: LaunchMode.externalApplication,
+                          ),
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('자세히 보기 / 신청하기'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _PolicyPreviewCard extends StatelessWidget {
+  final PolicyCardModel data;
+  final VoidCallback onTap;
+
+  const _PolicyPreviewCard({required this.data, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2EEFF)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 상태/분야 칩 느낌(지역 표기)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2EEFF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  data.region,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      data.summary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.event,
+                          size: 14,
+                          color: Colors.black54,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            data.period,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right, color: Colors.black45),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Labeled extends StatelessWidget {
+  final String label;
+  final String value;
+  const _Labeled(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 88,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.black87,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '정보 없음' : value,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Divider(
+      height: 1,
+      thickness: 1,
+      color: Colors.black.withOpacity(0.06),
+    ),
+  );
 }
