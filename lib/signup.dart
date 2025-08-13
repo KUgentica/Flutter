@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/auth_service.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({Key? key}) : super(key: key);
@@ -20,6 +21,8 @@ class _SignupPageState extends State<SignupPage> {
   String _emailError = '';
   String _passwordError = '';
   String _confirmPasswordError = '';
+
+  bool _isLoading = false;  // 로딩 상태 추가
 
   @override
   void initState() {
@@ -144,9 +147,93 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  void _handleSignup() {
-    if (_isFormValid) {
-      _showSignupSuccessDialog();
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('오류'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleSignup() async {
+    if (!_isFormValid) return;
+    
+    setState(() {
+      _isLoading = true;
+      // 에러 메시지 초기화
+      _nicknameError = '';
+      _emailError = '';
+      _passwordError = '';
+      _confirmPasswordError = '';
+    });
+    
+    try {
+      // 1단계: 이메일 중복 체크
+      print('🔍 1단계: 이메일 중복 체크 시작');
+      final isEmailDuplicate = await AuthService.checkEmailDuplicate(_emailController.text);
+      
+      if (isEmailDuplicate) {
+        setState(() {
+          _isLoading = false;
+          _emailError = '이미 사용 중인 이메일입니다.';
+        });
+        print('🚫 이메일 중복 발견: ${_emailController.text}');
+        return;
+      }
+      
+      print('✅ 이메일 중복 체크 통과');
+      
+      // 2단계: 실제 회원가입 진행
+      print('🔐 2단계: 회원가입 진행');
+      final result = await AuthService.register(
+        email: _emailController.text,
+        nickname: _nicknameController.text,
+        password: _passwordController.text,
+      );
+      
+      print('🔍 회원가입 결과: $result');
+      print('🔍 success 값: ${result['success']}');
+      print('🔍 message 값: ${result['message']}');
+      
+      if (result['success'] == true) {
+        print('✅ 회원가입 성공!');
+        _showSignupSuccessDialog();
+      } else {
+        print('❌ 회원가입 실패: ${result['message']}');
+        
+        // 에러 메시지에 따라 적절한 필드에 에러 표시
+        final errorMessage = result['message'] ?? '알 수 없는 오류가 발생했습니다.';
+        
+        if (errorMessage.contains('이미 사용 중인 이메일') || 
+            errorMessage.contains('중복된 이메일') ||
+            errorMessage.contains('duplicate email') ||
+            errorMessage.contains('email already exists')) {
+          setState(() {
+            _emailError = errorMessage;
+          });
+          print('🚫 중복 이메일 에러: $errorMessage');
+        } else {
+          _showErrorDialog(errorMessage);
+          print('❌ 기타 에러: $errorMessage');
+        }
+      }
+    } catch (e) {
+      print('💥 예상치 못한 오류: $e');
+      _showErrorDialog('예상치 못한 오류가 발생했습니다: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -304,7 +391,16 @@ class _SignupPageState extends State<SignupPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
                         '회원가입',
                         style: TextStyle(fontSize: 16, color: Colors.white),
                       ),

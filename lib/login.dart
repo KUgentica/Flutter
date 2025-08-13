@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -13,6 +14,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
   bool _isEmailFocused = false;
   bool _isPasswordFocused = false;
+  bool _isLoading = false;  // 로딩 상태 추가
 
   @override
   void initState() {
@@ -36,6 +38,77 @@ class _LoginPageState extends State<LoginPage> {
 
   void _onPasswordChanged() {
     setState(() {});
+  }
+
+  // 로그인 처리 함수 추가
+  Future<void> _handleLogin() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      _showErrorDialog('이메일과 비밀번호를 입력해주세요');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await AuthService.login(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+
+      if (result['success']) {
+        _showSuccessDialog(result['message']);
+        // 로그인 성공 시 메인 화면으로 이동
+        Navigator.pushReplacementNamed(context, '/onboarding');
+      } else {
+        _showErrorDialog(result['message']);
+      }
+    } catch (e) {
+      _showErrorDialog('예상치 못한 오류가 발생했습니다: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // 성공 다이얼로그
+  void _showSuccessDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('로그인 성공'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 에러 다이얼로그
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('로그인 실패'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -68,7 +141,7 @@ class _LoginPageState extends State<LoginPage> {
                     },
                     child: TextField(
                       controller: _emailController,
-                      style: TextStyle(color: Colors.grey[400]),
+                      style: const TextStyle(color: Colors.black),
                       decoration: InputDecoration(
                         hintText: _isEmailFocused || _emailController.text.isNotEmpty 
                             ? null 
@@ -94,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: TextField(
                       controller: _passwordController,
                       obscureText: _obscureText,
-                      style: TextStyle(color: Colors.grey[400]),
+                      style: const TextStyle(color: Colors.black),
                       decoration: InputDecoration(
                         hintText: _isPasswordFocused || _passwordController.text.isNotEmpty 
                             ? null 
@@ -127,16 +200,23 @@ class _LoginPageState extends State<LoginPage> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/onboarding');
-                      },
+                      onPressed: _isLoading ? null : _handleLogin,  // 로딩 중일 때 비활성화
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('로그인', style: TextStyle(fontSize: 16, color: Colors.white)),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text('로그인', style: TextStyle(fontSize: 16, color: Colors.white)),
                     ),
                   ),
                   const SizedBox(height: 24),
