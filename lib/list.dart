@@ -3,6 +3,8 @@ import 'detail.dart';
 import 'bookmark.dart';
 import 'calendar.dart';
 import 'data_manager.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class PolicyListPage extends StatefulWidget {
   final String category;
@@ -23,147 +25,70 @@ class _PolicyListPageState extends State<PolicyListPage> {
   String _searchQuery = '';
   final DataManager _dataManager = DataManager();
 
-  // 카테고리별 샘플 정책 데이터
-  final Map<String, List<Map<String, dynamic>>> _policyData = {
-    '창업 지원': [
-      {
-        'id': 'startup_1',
-        'title': '청년창업사관학교',
-        'description': '청년들의 창업 아이디어를 실현할 수 있도록 지원하는 프로그램',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '최대 5천만원',
-        'status': '신청가능',
-      },
-      {
-        'id': 'startup_2',
-        'title': '창업도약패키지',
-        'description': '창업 초기 단계의 청년들을 위한 종합 지원 프로그램',
-        'deadline': '2024.11.30',
-        'location': '서울, 부산, 대구',
-        'amount': '최대 3천만원',
-        'status': '신청가능',
-      },
-      {
-        'id': 'startup_3',
-        'title': '스타트업 인큐베이팅',
-        'description': '혁신적인 스타트업을 위한 사무공간 및 멘토링 지원',
-        'deadline': '2024.10.31',
-        'location': '전국',
-        'amount': '사무공간 무료 제공',
-        'status': '마감임박',
-      },
-    ],
-    '주거 지원': [
-      {
-        'id': 'housing_1',
-        'title': '청년주택공급',
-        'description': '청년들을 위한 전용 임대주택 공급',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '시세 대비 70%',
-        'status': '신청가능',
-      },
-      {
-        'id': 'housing_2',
-        'title': '전세자금대출',
-        'description': '청년 전세자금 대출 지원',
-        'deadline': '상시',
-        'location': '전국',
-        'amount': '최대 1억원',
-        'status': '신청가능',
-      },
-    ],
-    '교육·훈련비 지원': [
-      {
-        'id': 'education_1',
-        'title': '국비지원 교육과정',
-        'description': '취업에 도움이 되는 다양한 교육과정 지원',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '교육비 100% 지원',
-        'status': '신청가능',
-      },
-      {
-        'id': 'education_2',
-        'title': '자격증 취득 지원',
-        'description': '취업에 유리한 자격증 취득 비용 지원',
-        'deadline': '2024.11.30',
-        'location': '전국',
-        'amount': '최대 100만원',
-        'status': '신청가능',
-      },
-    ],
-    '금융 지원': [
-      {
-        'id': 'finance_1',
-        'title': '청년도약계좌',
-        'description': '청년들의 자산 형성을 위한 특별 계좌',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '최대 5천만원',
-        'status': '신청가능',
-      },
-      {
-        'id': 'finance_2',
-        'title': '청년대출',
-        'description': '청년들을 위한 저금리 대출',
-        'deadline': '상시',
-        'location': '전국',
-        'amount': '최대 3천만원',
-        'status': '신청가능',
-      },
-    ],
-    '생활·복지 지원': [
-      {
-        'id': 'welfare_1',
-        'title': '청년수당',
-        'description': '청년들의 기본생활을 지원하는 수당',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '월 30만원',
-        'status': '신청가능',
-      },
-      {
-        'id': 'welfare_2',
-        'title': '문화바우처',
-        'description': '청년들의 문화생활을 지원하는 바우처',
-        'deadline': '2024.11.30',
-        'location': '전국',
-        'amount': '연 10만원',
-        'status': '신청가능',
-      },
-    ],
-    '취업 지원': [
-      {
-        'id': 'job_1',
-        'title': '청년취업지원',
-        'description': '청년들의 취업을 위한 종합 지원 프로그램',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '취업성공수당 지급',
-        'status': '신청가능',
-      },
-      {
-        'id': 'job_2',
-        'title': '인턴십 지원',
-        'description': '기업 인턴십 참여를 위한 지원',
-        'deadline': '2024.11.30',
-        'location': '전국',
-        'amount': '월 100만원',
-        'status': '신청가능',
-      },
-    ],
-  };
+  List<Map<String, dynamic>> _policies = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchPolicies();
+  }
+
+  Future<void> fetchPolicies() async {
+    String keyword;
+    switch (widget.category) {
+      case '창업 지원':
+        keyword = '창업';
+        break;
+      case '주거 지원':
+        keyword = '주거';
+        break;
+      case '교육·훈련비 지원':
+        keyword = '교육';
+        break;
+      case '금융 지원':
+        keyword = '금융';
+        break;
+      case '생활·복지 지원':
+        keyword = '생활';
+        break;
+      case '취업 지원':
+        keyword = '취업';
+        break;
+      default:
+        keyword = widget.category;
+    }
+    final url = 'http://10.0.2.2:8080/policy/category?keyword=$keyword';
+    try {
+      final response = await http.get(Uri.parse(url));
+      print('=== [LOG] API 요청: $url');
+      print('=== [LOG] 응답 상태 코드: ${response.statusCode}');
+      print('=== [LOG] 응답 본문: ${response.body}');
+      if (response.statusCode == 200) {
+        setState(() {
+          _policies = List<Map<String, dynamic>>.from(json.decode(utf8.decode(response.bodyBytes)));
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('=== [LOG] API 요청 에러: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   List<Map<String, dynamic>> get filteredPolicies {
-    final policies = _policyData[widget.category] ?? [];
     if (_searchQuery.isEmpty) {
-      return policies;
+      return _policies;
     }
-    return policies.where((policy) {
-      return policy['title'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             policy['description'].toLowerCase().contains(_searchQuery.toLowerCase());
+    return _policies.where((policy) {
+      return (policy['plcyTitle'] ?? '').toLowerCase().contains(_searchQuery.toLowerCase()) ||
+             (policy['plcyExplnCn'] ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
   }
 
@@ -276,148 +201,152 @@ class _PolicyListPageState extends State<PolicyListPage> {
           
           // 정책 목록
           Expanded(
-            child: filteredPolicies.isEmpty
+            child: _isLoading
                 ? const Center(
-                    child: Text(
-                      '검색 결과가 없습니다.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
-                    ),
+                    child: CircularProgressIndicator(),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: filteredPolicies.length,
-                    itemBuilder: (context, index) {
-                      final policy = filteredPolicies[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 1,
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                : filteredPolicies.isEmpty
+                    ? const Center(
+                        child: Text(
+                          '검색 결과가 없습니다.',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      policy['title'],
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  // 하트 버튼 추가
-                                  GestureDetector(
-                                    onTap: () => _toggleFavorite(policy),
-                                    child: Icon(
-                                      _dataManager.isBookmarked(policy['id'])
-                                          ? Icons.favorite
-                                          : Icons.favorite_border,
-                                      color: _dataManager.isBookmarked(policy['id'])
-                                          ? Colors.red
-                                          : Colors.grey,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: policy['status'] == '신청가능'
-                                          ? Colors.green[100]
-                                          : Colors.orange[100],
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      policy['status'],
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: policy['status'] == '신청가능'
-                                            ? Colors.green[700]
-                                            : Colors.orange[700],
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                policy['description'],
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: filteredPolicies.length,
+                        itemBuilder: (context, index) {
+                          final policy = filteredPolicies[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  spreadRadius: 1,
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
                                 ),
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    Icons.location_on,
-                                    size: 16,
-                                    color: Colors.grey[500],
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          policy['plcyTitle'] ?? '제목 없음',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      // 하트 버튼 추가
+                                      GestureDetector(
+                                        onTap: () => _toggleFavorite(policy),
+                                        child: Icon(
+                                          _dataManager.isBookmarked(policy['id'])
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
+                                          color: _dataManager.isBookmarked(policy['id'])
+                                              ? Colors.red
+                                              : Colors.grey,
+                                          size: 24,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: policy['plcyStatus'] == '신청가능'
+                                              ? Colors.green[100]
+                                              : Colors.orange[100],
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          policy['plcyStatus'] ?? '상태 없음',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: policy['plcyStatus'] == '신청가능'
+                                                ? Colors.green[700]
+                                                : Colors.orange[700],
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(height: 8),
                                   Text(
-                                    policy['location'],
+                                    policy['plcyExplnCn'] ?? '설명 없음',
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[500],
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Icon(
-                                    Icons.attach_money,
-                                    size: 16,
-                                    color: Colors.grey[500],
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.location_on,
+                                        size: 16,
+                                        color: Colors.grey[500],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        policy['plcyLctr'] ?? '위치 없음',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Icon(
+                                        Icons.attach_money,
+                                        size: 16,
+                                        color: Colors.grey[500],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        policy['plcyAmt'] ?? '금액 없음',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    policy['amount'],
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[500],
-                                    ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.schedule,
+                                        size: 16,
+                                        color: Colors.grey[500],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '마감: ${policy['plcyDd'] ?? '날짜 없음'}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.schedule,
-                                    size: 16,
-                                    color: Colors.grey[500],
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '마감: ${policy['deadline']}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[500],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
+                                  const SizedBox(height: 12),
                                                              Row(
                                  children: [
                                    Expanded(
