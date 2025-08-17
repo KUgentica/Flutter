@@ -1,21 +1,138 @@
 import 'package:flutter/material.dart';
 
 class PolicyDetailPage extends StatefulWidget {
+  /// 정책 상세 데이터(정규화 맵 or 원본 plcy* 맵)
   final Map<String, dynamic> policy;
 
-  const PolicyDetailPage({
-    Key? key,
-    required this.policy,
-  }) : super(key: key);
+  const PolicyDetailPage({Key? key, required this.policy}) : super(key: key);
 
   @override
   State<PolicyDetailPage> createState() => _PolicyDetailPageState();
 }
 
 class _PolicyDetailPageState extends State<PolicyDetailPage> {
+  // 문자열 안전 변환
+  String _s(dynamic v, {String def = ''}) => (v == null ? def : v.toString());
+
+  // YYYYMMDD → DateTime
+  DateTime? _parseYMD(String v) {
+    final s = v.trim();
+    if (s.length != 8) return null;
+    final y = int.tryParse(s.substring(0, 4));
+    final m = int.tryParse(s.substring(4, 6));
+    final d = int.tryParse(s.substring(6, 8));
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
+  }
+
+  // YYYY-MM-DD / YYYY.MM.DD / 기타 구분자 → DateTime
+  DateTime? _parseFlexibleDate(String v) {
+    final s = v.trim();
+    if (s.isEmpty) return null;
+    final normalized = s.replaceAll('.', '-').replaceAll(RegExp(r'[^0-9\-]'), '');
+    try {
+      final iso = normalized.length >= 10 ? normalized.substring(0, 10) : normalized;
+      return DateTime.parse(iso);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // 신청기간(YYYYMMDD ~ YYYYMMDD) 상태
+  ({String label, Color bg, Color fg}) _statusByRange(String range) {
+    final parts = range.split('~').map((e) => e.trim()).toList();
+    if (parts.length != 2) {
+      return (label: range.isEmpty ? '신청기간 정보 없음' : range, bg: Colors.grey[200]!, fg: Colors.grey[700]!);
+    }
+    final now = DateTime.now();
+    final start = _parseYMD(parts[0]);
+    final end = _parseYMD(parts[1]);
+    if (start == null || end == null) {
+      return (label: range, bg: Colors.grey[200]!, fg: Colors.grey[700]!);
+    }
+    if (now.isBefore(start)) {
+      return (label: '신청예정 (${parts[0]} ~ ${parts[1]})', bg: Colors.blue[100]!, fg: Colors.blue[700]!);
+    } else if (now.isAfter(end.add(const Duration(days: 1)).subtract(const Duration(seconds: 1)))) {
+      return (label: '마감 (${parts[0]} ~ ${parts[1]})', bg: Colors.grey[200]!, fg: Colors.grey[700]!);
+    } else {
+      return (label: '신청가능 (${parts[0]} ~ ${parts[1]})', bg: Colors.green[100]!, fg: Colors.green[700]!);
+    }
+  }
+
+  // 마감일 1개만 있을 때 상태
+  ({String label, Color bg, Color fg}) _statusByDeadline(String deadline) {
+    final d = _parseFlexibleDate(deadline);
+    if (d == null) {
+      return (label: deadline.isEmpty ? '신청기간 정보 없음' : deadline, bg: Colors.grey[200]!, fg: Colors.grey[700]!);
+    }
+    final now = DateTime.now();
+    if (now.isAfter(d.add(const Duration(days: 1)).subtract(const Duration(seconds: 1)))) {
+      return (label: '마감일: $deadline (마감)', bg: Colors.grey[200]!, fg: Colors.grey[700]!);
+    } else {
+      return (label: '마감일: $deadline (신청가능)', bg: Colors.green[100]!, fg: Colors.green[700]!);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final p = widget.policy;
+    // PolicyListPage에서 n으로 넘긴 정규화 원본이 있으면 참고
+    final raw = p['_raw'] is Map ? (p['_raw'] as Map).cast<String, dynamic>() : p;
+
+    // 공통/정규화 우선, 없으면 원본 plcy* 폴백
+    final id          = _s(p['id'].toString().isNotEmpty ? p['id'] : raw['plcyId']);
+    final title       = _s(p['title'] ?? raw['plcyTitle'], def: '(제목 없음)');
+    final description = _s(p['description'] ?? raw['plcyExplnCn'], def: '설명 없음');
+    final location    = _s(p['location'] ?? raw['plcyLctr']);
+    final keywords    = _s(raw['plcyKywdNm']);
+    final zipCd       = _s(raw['zipCd']);
+
+    // 기간/상태
+    final aplyYmd     = _s(raw['aplyYmd']);               // "YYYYMMDD ~ YYYYMMDD" 형식일 수 있음
+    final deadline    = _s(p['deadline'] ?? raw['plcyDd']);
+    final statusText  = _s(p['status'] ?? raw['plcyStatus']);
+
+    // 금액
+    final plcyAmt     = _s(p['amount'] ?? raw['plcyAmt']);
+    final earnMin     = _s(raw['earnMinAmt']);
+    final earnMax     = _s(raw['earnMaxAmt']);
+    final amountText  = (() {
+      if (plcyAmt.isNotEmpty) return plcyAmt;
+      if (earnMin.isEmpty && earnMax.isEmpty) return '금액 정보 없음';
+      if (earnMin == '0' && earnMax == '0') return '금액 정보 없음';
+      if (earnMin.isEmpty) return '최대 $earnMax';
+      if (earnMax.isEmpty) return '최소 $earnMin';
+      return '$earnMin ~ $earnMax';
+    })();
+
+    // 연령
+    final ageMin      = _s(raw['sprtTrgtMinAge']);
+    final ageMax      = _s(raw['sprtTrgtMaxAge']);
+    final ageText     = (() {
+      if (ageMin.isEmpty && ageMax.isEmpty) return '연령 제한 없음';
+      if (ageMin.isEmpty) return '~ $ageMax세';
+      if (ageMax.isEmpty) return '$ageMin세 ~';
+      return '$ageMin세 ~ $ageMax세';
+    })();
+
+    // 신청 방법
+    final applyMethod = _s(raw['plcyAplyMthdCn']).replaceAll(r'\r\n', '\n').replaceAll(r'\n', '\n');
+
+    // 상태 배지 계산 우선순위: 명시적 status → 기간 범위 → 단일 마감일
+    ({String label, Color bg, Color fg})? badge;
+    if (statusText.isNotEmpty) {
+      final isOpen = statusText.contains('신청가능');
+      badge = (
+        label: statusText,
+        bg: isOpen ? Colors.green[100]! : Colors.orange[100]!,
+        fg: isOpen ? Colors.green[700]! : Colors.orange[700]!
+      );
+    } else if (aplyYmd.contains('~')) {
+      badge = _statusByRange(aplyYmd);
+    } else if (deadline.isNotEmpty) {
+      badge = _statusByDeadline(deadline);
+    }
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -27,266 +144,108 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
             backgroundColor: Colors.blue,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
-                widget.policy['title'],
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.blue[400]!,
-                      Colors.blue[600]!,
-                    ],
+                    colors: [Colors.blue[400]!, Colors.blue[600]!],
                   ),
                 ),
                 child: Center(
-                  child: Icon(
-                    Icons.policy,
-                    size: 80,
-                    color: Colors.white.withOpacity(0.3),
-                  ),
+                  child: Icon(Icons.policy, size: 80, color: Colors.white.withOpacity(0.3)),
                 ),
               ),
             ),
             actions: [
               IconButton(
-                onPressed: () {},
-                icon: const Icon(
-                  Icons.share,
-                  color: Colors.white,
-                ),
+                onPressed: () => debugPrint('[DETAIL] share id=$id title=$title'),
+                icon: const Icon(Icons.share, color: Colors.white),
               ),
             ],
           ),
-          
-          // 메인 콘텐츠
+
+          // 본문
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 상태 배지
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                  if (badge != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(color: badge!.bg, borderRadius: BorderRadius.circular(20)),
+                      child: Text(badge!.label, style: TextStyle(color: badge!.fg, fontWeight: FontWeight.w600)),
                     ),
-                    decoration: BoxDecoration(
-                      color: widget.policy['status'] == '신청가능'
-                          ? Colors.green[100]
-                          : Colors.orange[100],
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      widget.policy['status'],
-                      style: TextStyle(
-                        color: widget.policy['status'] == '신청가능'
-                            ? Colors.green[700]
-                            : Colors.orange[700],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  
+
                   const SizedBox(height: 16),
-                  
-                  // 정책 설명
-                  const Text(
-                    '정책 개요',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+
+                  const Text('정책 개요', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  Text(
-                    widget.policy['description'],
-                    style: const TextStyle(
-                      fontSize: 16,
-                      height: 1.5,
-                    ),
-                  ),
-                  
+                  Text(description, style: const TextStyle(fontSize: 16, height: 1.5)),
+
                   const SizedBox(height: 24),
-                  
-                  // 지원 내용
-                  _buildInfoSection(
-                    '지원 내용',
-                    [
-                      {'label': '지원 금액', 'value': widget.policy['amount']},
-                      {'label': '지원 지역', 'value': widget.policy['location']},
-                      {'label': '신청 마감', 'value': widget.policy['deadline']},
-                    ],
-                  ),
-                  
+
+                  _buildInfoSection('기본 정보', [
+                    {'label': '정책 ID',   'value': id.isEmpty ? '-' : id},
+                    {'label': '위치',       'value': location.isEmpty ? '-' : location},
+                    {'label': '신청 기간',  'value': aplyYmd.isNotEmpty ? aplyYmd : (deadline.isNotEmpty ? deadline : '-')},
+                    {'label': '키워드',     'value': keywords.isEmpty ? '-' : keywords},
+                    {'label': '우편번호',   'value': zipCd.isEmpty ? '-' : zipCd},
+                  ]),
+
                   const SizedBox(height: 24),
-                  
-                  // 신청 자격
-                  _buildInfoSection(
-                    '신청 자격',
-                    [
-                      {'label': '연령', 'value': '만 19세 ~ 34세'},
-                      {'label': '소득 기준', 'value': '연소득 3,600만원 이하'},
-                      {'label': '거주지', 'value': '대한민국 국적자'},
-                      {'label': '기타 조건', 'value': '해당 정책별 상세 조건 확인 필요'},
-                    ],
-                  ),
-                  
+
+                  _buildInfoSection('지원 조건/내용', [
+                    {'label': '연령',     'value': ageText},
+                    {'label': '지원 금액', 'value': amountText},
+                  ]),
+
                   const SizedBox(height: 24),
-                  
-                  // 신청 방법
-                  const Text(
-                    '신청 방법',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+
+                  const Text('신청 방법', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.grey[50],
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey[200]!),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildStepItem('1', '온라인 신청', '정부24 또는 해당 기관 홈페이지에서 신청'),
-                        const SizedBox(height: 12),
-                        _buildStepItem('2', '서류 제출', '필요 서류를 스캔하여 업로드'),
-                        const SizedBox(height: 12),
-                        _buildStepItem('3', '심사 및 승인', '제출된 서류 검토 후 승인 여부 통보'),
-                        const SizedBox(height: 12),
-                        _buildStepItem('4', '지원금 지급', '승인 후 지정된 계좌로 지원금 지급'),
-                      ],
+                    child: Text(
+                      applyMethod.isEmpty ? '상세 공고문을 확인하세요.' : applyMethod,
+                      style: const TextStyle(fontSize: 14, height: 1.6),
                     ),
                   ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // 필요 서류
-                  const Text(
-                    '필요 서류',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildDocumentItem('신분증 사본'),
-                        _buildDocumentItem('소득증빙서류'),
-                        _buildDocumentItem('주민등록등본'),
-                        _buildDocumentItem('가족관계증명서'),
-                        _buildDocumentItem('기타 정책별 필요서류'),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // 문의처
-                  const Text(
-                    '문의처',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildContactItem(Icons.phone, '전화', '1588-1234'),
-                        const SizedBox(height: 8),
-                        _buildContactItem(Icons.email, '이메일', 'support@youth.go.kr'),
-                        const SizedBox(height: 8),
-                        _buildContactItem(Icons.language, '홈페이지', 'www.youth.go.kr'),
-                      ],
-                    ),
-                  ),
-                  
+
                   const SizedBox(height: 32),
-                  
-                  // 신청하기 버튼
+
+                  // 하단 액션
                   SizedBox(
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
                       onPressed: () {
-                        // 신청 페이지로 이동 또는 신청 처리
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('신청이 완료되었습니다.'),
-                            backgroundColor: Colors.green,
-                          ),
+                          const SnackBar(content: Text('신청 절차는 공고문을 확인하세요.'), backgroundColor: Colors.blue),
                         );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text(
-                        '지금 신청하기',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: const Text('신청 안내',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                     ),
                   ),
-                  
                   const SizedBox(height: 16),
-                  
-                  // 상세보기 버튼
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        // 외부 링크로 이동
-                      },
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.blue[300]!),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        '공식 홈페이지에서 상세보기',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.blue,
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 32),
                 ],
               ),
             ),
@@ -300,13 +259,7 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
@@ -316,37 +269,25 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
           ),
           child: Column(
             children: items.map((item) {
+              final label = item['label'] ?? '';
+              final value = item['value'] ?? '';
               return Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Colors.grey[200]!,
-                      width: 1,
-                    ),
-                  ),
+                  border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 80,
-                      child: Text(
-                        item['label']!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      width: 90,
+                      child: Text(label,
+                          style: TextStyle(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
                     ),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        item['value']!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: Text(value.isEmpty ? '-' : value,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -357,97 +298,4 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
       ],
     );
   }
-
-  Widget _buildStepItem(String number, String title, String description) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: Colors.blue,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Center(
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDocumentItem(String document) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(
-            Icons.check_circle,
-            color: Colors.blue[600],
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            document,
-            style: const TextStyle(fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContactItem(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.grey[600], size: 20),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-} 
+}

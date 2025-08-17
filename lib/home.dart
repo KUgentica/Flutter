@@ -30,7 +30,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   
   final List<Map<String, dynamic>> categories = [
     {
-      'title': '창업 지원',
+      'title':'청년 센터',
       'icon': Icons.eco,
       'color': Colors.green,
     },
