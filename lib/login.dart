@@ -58,13 +58,33 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (result['success']) {
-        _showSuccessDialog(result['message']);
-        // 로그인 성공 시 메인 화면으로 이동
-        Navigator.pushReplacementNamed(context, '/onboarding');
+        print('🎉 로그인 성공! 프로필 완성 여부 확인 중...');
+        
+        // 사용자 이메일 가져오기
+        final userEmail = result['email'];
+        if (userEmail == null) {
+          print('❌ 사용자 이메일을 찾을 수 없습니다.');
+          _showErrorDialog('로그인 정보를 가져올 수 없습니다.');
+          return;
+        }
+        
+        // 프로필 완성 여부 확인
+        final shouldShowOnboarding = await AuthService.shouldShowOnboarding(userEmail);
+        
+        if (shouldShowOnboarding) {
+          print('⚠️ Onboarding이 필요합니다. Onboarding 화면으로 이동합니다.');
+          // Onboarding이 필요한 경우 onboarding으로 이동
+          Navigator.pushReplacementNamed(context, '/onboarding');
+        } else {
+          print('✅ Onboarding이 필요하지 않습니다. 메인 화면으로 이동합니다.');
+          // Onboarding이 필요하지 않은 경우 메인 화면으로 이동
+          Navigator.pushReplacementNamed(context, '/home');
+        }
       } else {
         _showErrorDialog(result['message']);
       }
     } catch (e) {
+      print('💥 로그인 중 오류 발생: $e');
       _showErrorDialog('예상치 못한 오류가 발생했습니다: $e');
     } finally {
       setState(() {

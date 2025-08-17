@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/auth_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
@@ -13,7 +14,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
 
   String _selectedRegion = '';
-  int _selectedAge = 20;
+  int _selectedAge = 20; // 기본값을 20세로 변경
   String _selectedGender = '';
 
   final List<String> _regions = [
@@ -47,14 +48,77 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_region', _selectedRegion);
-    await prefs.setInt('user_age', _selectedAge);
-    await prefs.setString('user_gender', _selectedGender);
-    await prefs.setBool('onboarding_completed', true);
+    print('🚀 === Onboarding 완료 시작 ===');
+    print('🌍 선택된 지역: $_selectedRegion');
+    print('🎂 선택된 나이: $_selectedAge');
+    print('👫 선택된 성별: $_selectedGender');
     
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/home');
+    try {
+      // 사용자 이메일 가져오기
+      final prefs = await SharedPreferences.getInstance();
+      final userEmail = prefs.getString('userEmail');
+      if (userEmail == null) {
+        print('❌ 사용자 이메일을 찾을 수 없습니다.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('사용자 이메일을 찾을 수 없습니다. 다시 로그인해주세요.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
+      print('📧 사용자 이메일: $userEmail');
+      
+      // 사용자별 onboarding 완료 플래그 설정
+      final onboardingKey = 'onboarding_completed_$userEmail';
+      await prefs.setBool(onboardingKey, true);
+      print('✅ Onboarding 완료 플래그 설정: $onboardingKey = true');
+      
+      // MongoDB에 프로필 정보 저장
+      print('📡 MongoDB에 프로필 정보 저장 시도...');
+      final result = await AuthService.updateUserProfile(
+        email: userEmail,
+        region: _selectedRegion,
+        age: _selectedAge,
+        gender: _selectedGender,
+      );
+      
+      print('📥 === MongoDB 저장 결과 ===');
+      print('✅ 성공 여부: ${result['success']}');
+      print('📝 메시지: ${result['message']}');
+      
+      if (result['success']) {
+        print('🎉 Onboarding 완료! MongoDB에 프로필 정보가 저장되었습니다.');
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } else {
+        print('❌ MongoDB 저장 실패! 사용자에게 오류 메시지를 표시합니다.');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('프로필 저장에 실패했습니다: ${result['message']}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+      
+    } catch (e) {
+      print('💥 === Onboarding 완료 중 오류 발생 ===');
+      print('❌ 오류 타입: ${e.runtimeType}');
+      print('❌ 오류 메시지: $e');
+      print('❌ 스택 트레이스: ${StackTrace.current}');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -203,12 +267,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             physics: const FixedExtentScrollPhysics(),
             onSelectedItemChanged: (index) {
               setState(() {
-                _selectedAge = index + 14;
+                _selectedAge = index + 20; // 20세부터 시작
               });
             },
             childDelegate: ListWheelChildBuilderDelegate(
               builder: (context, index) {
-                final age = index + 14;
+                final age = index + 20; // 20세부터 시작
                 return Center(
                   child: Text(
                     '$age세',
@@ -220,7 +284,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 );
               },
-              childCount: 87,
+              childCount: 81, // 20세~100세 = 81개 (100-20+1)
             ),
           ),
         ),
@@ -381,7 +445,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_currentPage == 0) {
       return _selectedRegion.isNotEmpty;
     } else if (_currentPage == 1) {
-      return _selectedAge >= 14;
+      return _selectedAge >= 20; // 최소 나이를 20세로 변경
     } else if (_currentPage == 2) {
       return _selectedGender.isNotEmpty;
     }

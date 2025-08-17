@@ -56,7 +56,7 @@ class _AgePickerDialogState extends State<AgePickerDialog> {
             ),
             onChanged: (value) {
               final age = int.tryParse(value);
-              if (age != null && age >= 1 && age <= 120) {
+              if (age != null && age >= 20 && age <= 100) {
                 setState(() {
                   _selectedAge = age;
                 });
@@ -73,12 +73,12 @@ class _AgePickerDialogState extends State<AgePickerDialog> {
         ElevatedButton(
           onPressed: () {
             final age = int.tryParse(_controller.text);
-            if (age != null && age >= 1 && age <= 120) {
+            if (age != null && age >= 20 && age <= 100) {
               widget.onSelected(age);
               Navigator.pop(context);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('올바른 나이를 입력해주세요 (1-120세)')),
+                const SnackBar(content: Text('올바른 나이를 입력해주세요 (20-100세)')),
               );
             }
           },

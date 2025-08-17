@@ -12,8 +12,6 @@ import 'home.dart';
 import 'onboarding_screen.dart';
 import 'pages/more_page.dart';
 import 'pages/account_info_page.dart';
-import 'pages/change_password_page.dart';
-import 'pages/change_email_page.dart';
 import 'pages/qna_page.dart';
 import 'pages/notice_page.dart';
 import 'pages/settings_page.dart';
@@ -50,8 +48,6 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MyHomePage(),
         '/more': (context) => const MorePage(),
         '/account': (context) => const AccountInfoPage(),
-        '/change-password': (context) => const ChangePasswordPage(),
-        '/change-email': (context) => const ChangeEmailPage(),
         '/qna': (context) => const QnaPage(),
         '/notice': (context) => const NoticePage(),
         '/settings': (context) => const SettingsPage(),

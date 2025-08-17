@@ -18,8 +18,8 @@ class GenderDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           RadioListTile<String>(
-            title: const Text('남자'),
-            value: '남',
+            title: const Text('남성'),
+            value: '남성',
             groupValue: selectedGender,
             onChanged: (value) {
               if (value != null) {
@@ -29,8 +29,8 @@ class GenderDialog extends StatelessWidget {
             },
           ),
           RadioListTile<String>(
-            title: const Text('여자'),
-            value: '여',
+            title: const Text('여성'),
+            value: '여성',
             groupValue: selectedGender,
             onChanged: (value) {
               if (value != null) {

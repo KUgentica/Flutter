@@ -10,6 +10,11 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // 로그인 상태 확인용
+import 'services/auth_service.dart'; // MongoDB 저장을 위해 추가
+
+// const String _kChatStoreKey = 'chat_messages_v1'; // 로컬 저장 키 제거
+
 
 class ChatBotScreen extends StatefulWidget {
   const ChatBotScreen({super.key});
@@ -57,6 +62,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     super.initState();
     _initializePartyIconAnimation();
     _initializeConnectionAnimation();
+    _loadChatFromMongoDB(); // MongoDB에서 채팅 로드
     _connectWebSocket();
   }
 
@@ -208,6 +214,46 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     }
   }
 
+  Future<void> _loadChatFromMongoDB() async {
+    try {
+      final messages = await AuthService.getMessages();
+      if (messages.isNotEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _messages
+            ..clear()
+            ..addAll(messages);
+
+          // 2) 애니메이션 플래그 길이 맞추기(길이 불일치로 렌더가 스킵되는 문제 방지)
+          _messageAnimations
+            ..clear()
+            ..addAll(List<bool>.filled(_messages.length, true));
+
+          // 3) 웰컴 카드 숨김
+          _showWelcomeCard = _messages.isEmpty;
+        });
+
+        // 4) 스크롤 맨 아래로
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+        debugPrint('[Chatbot] restored ${_messages.length} msgs from MongoDB');
+      }
+    } catch (e) {
+      debugPrint('[Chatbot] restore error: $e');
+    }
+  }
+
+
+  Future<void> _saveChatToMongoDB(String role, String text) async {
+    try {
+      await AuthService.addMessage(role, text);
+      debugPrint('[Chatbot] saved message to MongoDB');
+    } catch (e) {
+      debugPrint('[Chatbot] save to MongoDB error: $e');
+    }
+  }
+
+
   /// 💬 메시지 리스트에 추가
   void _addMessage(String role, String text) {
     if (!mounted) return;
@@ -215,20 +261,22 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     setState(() {
       _showWelcomeCard = false;
       _messages.add({"role": role, "text": text});
-      _messageAnimations.add(false); // 애니메이션 상태 추가
+      _messageAnimations.add(false);
     });
 
-    // 메시지가 추가된 후 애니메이션 시작
+    _saveChatToMongoDB(role, text);  // ✅ 저장
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_messageAnimations.isNotEmpty) {
-        setState(() {
+      if (!mounted) return;
+      setState(() {
+        if (_messageAnimations.isNotEmpty) {
           _messageAnimations[_messageAnimations.length - 1] = true;
-        });
-      }
+        }
+      });
+      _scrollToBottom();
     });
-
-    _scrollToBottom();
   }
+
 
   /// ⬇️ 스크롤 맨 아래로 이동
   void _scrollToBottom() {
