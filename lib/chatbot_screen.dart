@@ -697,9 +697,39 @@ class _ChatBotScreenState extends State<ChatBotScreen>
                 child: TextField(
                   focusNode: _focusNode,
                   controller: _searchController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: "무엇이 궁금하신가요?",
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: () async {
+                        final result = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('대화내용 삭제'),
+                            content: const Text('대화내용을 삭제하시겠습니까?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('취소'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: const Text('삭제'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (result == true) {
+                          setState(() {
+                            _messages.clear();
+                            _messageAnimations.clear();
+                            _showWelcomeCard = true;
+                          });
+                          // 서버(chat 컬렉션)에서도 삭제
+                          await AuthService.clearChatMessages();
+                        }
+                      },
+                    ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
                       vertical: 12,
