@@ -24,9 +24,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   Timer? _timer;
   double _scrollPosition = 0;
   
-  // 카테고리 애니메이션 컨트롤러들
-  late List<AnimationController> _categoryControllers;
-  late List<Animation<double>> _categoryAnimations;
+  // 카테고리 애니메이션 컨트롤러 제거
+  // late List<AnimationController> _categoryControllers;
+  // late List<Animation<double>> _categoryAnimations;
   
   final List<Map<String, dynamic>> categories = [
     {
@@ -35,29 +35,59 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       'color': Colors.green,
     },
     {
-      'title': '주거 지원',
-      'icon': Icons.group,
+      'title': '보조금',
+      'icon': Icons.attach_money,
+      'color': Colors.amber,
+    },
+    {
+      'title': '주거지원',
+      'icon': Icons.home,
       'color': Colors.blue,
     },
     {
-      'title': '교육·훈련비 지원',
+      'title': '해외진출',
+      'icon': Icons.flight_takeoff,
+      'color': Colors.indigo,
+    },
+    {
+      'title': '교육지원',
       'icon': Icons.school,
       'color': Colors.orange,
     },
     {
-      'title': '금융 지원',
-      'icon': Icons.account_balance_wallet,
-      'color': Colors.yellow,
-    },
-    {
-      'title': '생활·복지 지원',
-      'icon': Icons.person,
+      'title': '맞춤형상담서비스',
+      'icon': Icons.support_agent,
       'color': Colors.purple,
     },
     {
-      'title': '취업 지원',
-      'icon': Icons.work,
-      'color': Colors.red,
+      'title': '육아',
+      'icon': Icons.child_friendly,
+      'color': Colors.pink,
+    },
+    {
+      'title': '공공임대주택',
+      'icon': Icons.apartment,
+      'color': Colors.teal,
+    },
+    {
+      'title': '신용회복',
+      'icon': Icons.credit_score,
+      'color': Colors.deepOrange,
+    },
+    {
+      'title': '금리혜택',
+      'icon': Icons.percent,
+      'color': Colors.cyan,
+    },
+    {
+      'title': '출산',
+      'icon': Icons.baby_changing_station,
+      'color': Colors.redAccent,
+    },
+    {
+      'title': '인턴',
+      'icon': Icons.work_outline,
+      'color': Colors.lightBlue,
     },
   ];
 
@@ -95,46 +125,43 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    _initializeCategoryAnimations();
+    // _initializeCategoryAnimations(); // 애니메이션 제거
     _startAutoScroll();
   }
   
-  void _initializeCategoryAnimations() {
-    _categoryControllers = [];
-    _categoryAnimations = [];
+  // void _initializeCategoryAnimations() {
+  //   _categoryControllers = [];
+  //   _categoryAnimations = [];
     
-    for (int i = 0; i < categories.length; i++) {
-      final controller = AnimationController(
-        duration: Duration(milliseconds: 2000 + (i * 300)),
-        vsync: this,
-      );
+  //   for (int i = 0; i < categories.length; i++) {
+  //     final controller = AnimationController(
+  //       duration: Duration(milliseconds: 2000 + (i * 300)),
+  //       vsync: this,
+  //     );
       
-      final animation = Tween<double>(
-        begin: 0.0,
-        end: 1.0,
-      ).animate(CurvedAnimation(
-        parent: controller,
-        curve: Curves.easeInOut,
-      ));
+  //     final animation = Tween<double>(
+  //       begin: 0.0,
+  //       end: 1.0,
+  //     ).animate(CurvedAnimation(
+  //       parent: controller,
+  //       curve: Curves.easeInOut,
+  //     ));
       
-      _categoryControllers.add(controller);
-      _categoryAnimations.add(animation);
+  //     _categoryControllers.add(controller);
+  //     _categoryAnimations.add(animation);
       
-      // 각 카테고리마다 다른 타이밍으로 반복 애니메이션
-      controller.repeat();
-    }
-  }
+  //     // 각 카테고리마다 다른 타이밍으로 반복 애니메이션
+  //     controller.repeat();
+  //   }
+  // }
 
   @override
   void dispose() {
     _timer?.cancel();
     _scrollController.dispose();
-    
-    // 카테고리 애니메이션 컨트롤러들 해제
-    for (final controller in _categoryControllers) {
-      controller.dispose();
-    }
-    
+    // for (final controller in _categoryControllers) {
+    //   controller.dispose();
+    // }
     super.dispose();
   }
 
@@ -257,68 +284,22 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                        childAspectRatio: 1.2, // 고정된 비율로 변경
+                        mainAxisSpacing: 20, // 세로 간격 넓힘
+                        childAspectRatio: 1.2,
                       ),
                       itemCount: categories.length,
                       itemBuilder: (context, index) {
-                        return AnimatedBuilder(
-                          animation: _categoryAnimations[index],
-                          builder: (context, child) {
-                            // 사인 함수를 사용해서 위아래로 움직이는 애니메이션
-                            final value = _categoryAnimations[index].value;
-                            final offset = sin(value * 2 * pi) * 3.0; // 3픽셀 위아래 움직임
-                            
-                            return Transform.translate(
-                              offset: Offset(0, offset),
-                              child: GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => PolicyListPage(
-                                        category: categories[index]['title'],
-                                        categoryData: categories[index],
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8F8F8), // 거의 회색 배경
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.grey.withValues(alpha: 0.2),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        categories[index]['icon'],
-                                        color: categories[index]['color'],
-                                        size: screenWidth * 0.06,
-                                      ),
-                                      SizedBox(height: screenHeight * 0.005),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                        child: Text(
-                                          categories[index]['title'],
-                                          style: TextStyle(
-                                            fontSize: screenWidth * 0.03,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                        return _CategoryTile(
+                          title: categories[index]['title'],
+                          icon: categories[index]['icon'],
+                          color: categories[index]['color'],
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PolicyListPage(
+                                  category: categories[index]['title'],
+                                  categoryData: categories[index],
                                 ),
                               ),
                             );
@@ -330,130 +311,130 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                     SizedBox(height: screenHeight * 0.03),
                     
                     // 최신 정책 섹션
-                    Text(
-                      '최신 정책',
-                      style: TextStyle(
-                        fontSize: screenWidth * 0.05,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: screenHeight * 0.015),
+                    // Text(
+                    //   '최신 정책',
+                    //   style: TextStyle(
+                    //     fontSize: screenWidth * 0.05,
+                    //     fontWeight: FontWeight.bold,
+                    //   ),
+                    // ),
+                    // SizedBox(height: screenHeight * 0.015),
                     
-                    SizedBox(
-                      height: screenHeight * 0.25,
-                      child: ListView.builder(
-                          controller: _scrollController,
-                          scrollDirection: Axis.horizontal,
-                        itemCount: latestPolicies.length * 3, // 무한 스크롤을 위해 3배로 늘림
-                        itemBuilder: (context, index) {
-                          final actualIndex = index % latestPolicies.length;
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PolicyDetailPage(
-                                    policy: latestPolicies[actualIndex],
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: screenWidth * 0.75,
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.grey.withOpacity(0.2),
-                                    spreadRadius: 2,
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: Container(
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue[100],
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(16),
-                                          topRight: Radius.circular(16),
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Icon(
-                                          Icons.policy,
-                                          size: screenWidth * 0.08,
-                                          color: Colors.blue[600],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Padding(
-                                      padding: EdgeInsets.all(screenWidth * 0.03),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            latestPolicies[actualIndex]['title'],
-                                            style: TextStyle(
-                                              fontSize: screenWidth * 0.035,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          SizedBox(height: screenHeight * 0.003),
-                                          Text(
-                                            latestPolicies[actualIndex]['subtitle'],
-                                            style: TextStyle(
-                                              fontSize: screenWidth * 0.03,
-                                              color: Colors.grey[600],
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const Spacer(),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.location_on,
-                                                size: screenWidth * 0.03,
-                                                color: Colors.grey[500],
-                                              ),
-                                              SizedBox(width: screenWidth * 0.008),
-                                              Expanded(
-                                                child: Text(
-                                                  latestPolicies[actualIndex]['location'],
-                                                  style: TextStyle(
-                                                    fontSize: screenWidth * 0.025,
-                                                    color: Colors.grey[500],
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                    // SizedBox(
+                    //   height: screenHeight * 0.25,
+                    //   child: ListView.builder(
+                    //       controller: _scrollController,
+                    //       scrollDirection: Axis.horizontal,
+                    //     itemCount: latestPolicies.length * 3, // 무한 스크롤을 위해 3배로 늘림
+                    //     itemBuilder: (context, index) {
+                    //       final actualIndex = index % latestPolicies.length;
+                    //       return GestureDetector(
+                    //         onTap: () {
+                    //           Navigator.push(
+                    //             context,
+                    //             MaterialPageRoute(
+                    //               builder: (context) => PolicyDetailPage(
+                    //                 policy: latestPolicies[actualIndex],
+                    //               ),
+                    //             ),
+                    //           );
+                    //         },
+                    //         child: Container(
+                    //           width: screenWidth * 0.75,
+                    //           margin: const EdgeInsets.symmetric(horizontal: 8),
+                    //           decoration: BoxDecoration(
+                    //             color: Colors.white,
+                    //             borderRadius: BorderRadius.circular(16),
+                    //             boxShadow: [
+                    //               BoxShadow(
+                    //                 color: Colors.grey.withOpacity(0.2),
+                    //                 spreadRadius: 2,
+                    //                 blurRadius: 8,
+                    //                 offset: const Offset(0, 4),
+                    //               ),
+                    //             ],
+                    //           ),
+                    //           child: Column(
+                    //             crossAxisAlignment: CrossAxisAlignment.start,
+                    //             children: [
+                    //               Expanded(
+                    //                 flex: 3,
+                    //                 child: Container(
+                    //                   width: double.infinity,
+                    //                   decoration: BoxDecoration(
+                    //                     color: Colors.blue[100],
+                    //                     borderRadius: const BorderRadius.only(
+                    //                       topLeft: Radius.circular(16),
+                    //                       topRight: Radius.circular(16),
+                    //                     ),
+                    //                   ),
+                    //                   child: Center(
+                    //                     child: Icon(
+                    //                       Icons.policy,
+                    //                       size: screenWidth * 0.08,
+                    //                       color: Colors.blue[600],
+                    //                     ),
+                    //                   ),
+                    //                 ),
+                    //               ),
+                    //               Expanded(
+                    //                 flex: 2,
+                    //                 child: Padding(
+                    //                   padding: EdgeInsets.all(screenWidth * 0.03),
+                    //                   child: Column(
+                    //                     crossAxisAlignment: CrossAxisAlignment.start,
+                    //                     children: [
+                    //                       Text(
+                    //                         latestPolicies[actualIndex]['title'],
+                    //                         style: TextStyle(
+                    //                           fontSize: screenWidth * 0.035,
+                    //                           fontWeight: FontWeight.bold,
+                    //                         ),
+                    //                         maxLines: 1,
+                    //                         overflow: TextOverflow.ellipsis,
+                    //                       ),
+                    //                       SizedBox(height: screenHeight * 0.003),
+                    //                       Text(
+                    //                         latestPolicies[actualIndex]['subtitle'],
+                    //                         style: TextStyle(
+                    //                           fontSize: screenWidth * 0.03,
+                    //                           color: Colors.grey[600],
+                    //                         ),
+                    //                         maxLines: 1,
+                    //                         overflow: TextOverflow.ellipsis,
+                    //                       ),
+                    //                       const Spacer(),
+                    //                       Row(
+                    //                         children: [
+                    //                           Icon(
+                    //                             Icons.location_on,
+                    //                             size: screenWidth * 0.03,
+                    //                             color: Colors.grey[500],
+                    //                           ),
+                    //                           SizedBox(width: screenWidth * 0.008),
+                    //                           Expanded(
+                    //                             child: Text(
+                    //                               latestPolicies[actualIndex]['location'],
+                    //                               style: TextStyle(
+                    //                                 fontSize: screenWidth * 0.025,
+                    //                                 color: Colors.grey[500],
+                    //                               ),
+                    //                               overflow: TextOverflow.ellipsis,
+                    //                             ),
+                    //                           ),
+                    //                         ],
+                    //                       ),
+                    //                     ],
+                    //                   ),
+                    //                 ),
+                    //               ),
+                    //             ],
+                    //           ),
+                    //         ),
+                    //       );
+                    //     },
+                    //   ),
+                    // ),
 
 
                 SizedBox(height: screenHeight * 0.01),
@@ -465,5 +446,74 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     ),
   ),
 );
+  }
+}
+
+class _CategoryTile extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _CategoryTile({required this.title, required this.icon, required this.color, required this.onTap});
+  @override
+  State<_CategoryTile> createState() => _CategoryTileState();
+}
+
+class _CategoryTileState extends State<_CategoryTile> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = widget.color;
+    final hoverColor = baseColor.withOpacity(0.8);
+    return MouseRegion(
+      // hover 시에는 반응하지 않음
+      onEnter: (_) {},
+      onExit: (_) {},
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onTapDown: (_) => setState(() => _hovered = true),
+        onTapUp: (_) => setState(() => _hovered = false),
+        onTapCancel: () => setState(() => _hovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            color: _hovered ? hoverColor.withOpacity(0.15) : const Color(0xFFF8F8F8),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.2),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border: Border.all(
+              color: _hovered ? baseColor : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, color: baseColor, size: MediaQuery.of(context).size.width * 0.06),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  widget.title,
+                  style: TextStyle(
+                    fontSize: MediaQuery.of(context).size.width * 0.03,
+                    fontWeight: FontWeight.w600,
+                    color: baseColor,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

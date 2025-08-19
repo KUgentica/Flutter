@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PolicyDetailPage extends StatefulWidget {
   /// 정책 상세 데이터(정규화 맵 or 원본 plcy* 맵)
@@ -133,6 +134,15 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
       badge = _statusByDeadline(deadline);
     }
 
+    // 신청 관련 URL
+    final aplyUrl = _s(raw['aplyUrlAddr']);
+    final refUrl1 = _s(raw['refUrlAddr1']);
+    final refUrl2 = _s(raw['refUrlAddr2']);
+    final List<String> urls = [aplyUrl, refUrl1, refUrl2].where((u) => u.isNotEmpty).toList();
+    final String? mainUrl = urls.isNotEmpty ? urls.first : null;
+    // 지역(우편번호) 그대로 노출
+    final zipRegion = zipCd.isNotEmpty ? zipCd : '-';
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -192,7 +202,7 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
                     {'label': '위치',       'value': location.isEmpty ? '-' : location},
                     {'label': '신청 기간',  'value': aplyYmd.isNotEmpty ? aplyYmd : (deadline.isNotEmpty ? deadline : '-')},
                     {'label': '키워드',     'value': keywords.isEmpty ? '-' : keywords},
-                    {'label': '우편번호',   'value': zipCd.isEmpty ? '-' : zipCd},
+                    {'label': '지역',       'value': zipRegion}, // 우편번호 그대로
                   ]),
 
                   const SizedBox(height: 24),
@@ -214,9 +224,59 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey[200]!),
                     ),
-                    child: Text(
-                      applyMethod.isEmpty ? '상세 공고문을 확인하세요.' : applyMethod,
-                      style: const TextStyle(fontSize: 14, height: 1.6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          applyMethod.isEmpty ? '상세 공고문을 확인하세요.' : applyMethod,
+                          style: const TextStyle(fontSize: 14, height: 1.6),
+                        ),
+                        if (aplyUrl.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: GestureDetector(
+                              onTap: () async {
+                                if (await canLaunchUrl(Uri.parse(aplyUrl))) {
+                                  await launchUrl(Uri.parse(aplyUrl), mode: LaunchMode.inAppWebView);
+                                }
+                              },
+                              child: Text(
+                                aplyUrl,
+                                style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13),
+                              ),
+                            ),
+                          ),
+                        if (refUrl1.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: GestureDetector(
+                              onTap: () async {
+                                if (await canLaunchUrl(Uri.parse(refUrl1))) {
+                                  await launchUrl(Uri.parse(refUrl1), mode: LaunchMode.inAppWebView);
+                                }
+                              },
+                              child: Text(
+                                refUrl1,
+                                style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13),
+                              ),
+                            ),
+                          ),
+                        if (refUrl2.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: GestureDetector(
+                              onTap: () async {
+                                if (await canLaunchUrl(Uri.parse(refUrl2))) {
+                                  await launchUrl(Uri.parse(refUrl2), mode: LaunchMode.inAppWebView);
+                                }
+                              },
+                              child: Text(
+                                refUrl2,
+                                style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
 
@@ -227,17 +287,32 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('신청 절차는 공고문을 확인하세요.'), backgroundColor: Colors.blue),
-                        );
-                      },
+                      onPressed: mainUrl != null
+                          ? () async {
+                              if (await canLaunchUrl(Uri.parse(mainUrl))) {
+                                await launchUrl(
+                                  Uri.parse(mainUrl),
+                                  mode: LaunchMode.inAppWebView, // 외부 브라우저 대신 내장 웹뷰로 변경
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('신청 사이트로 이동할 수 없습니다.'), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          : () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('신청 절차는 공고문을 확인하세요.'), backgroundColor: Colors.blue),
+                              );
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('신청 안내',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                      child: Text(
+                        mainUrl != null ? '신청 사이트 이동' : '신청 안내',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),

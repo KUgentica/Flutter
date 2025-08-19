@@ -50,20 +50,20 @@ class _PolicyListPageState extends State<PolicyListPage> {
       case '청년 센터':
         keyword = '센터';
         break;
-      case '주거 지원':
+      case '보조금':
+        keyword = '보조금';
+        break;
+      case '주거지원':
         keyword = '주거';
         break;
-      case '교육·훈련비 지원':
+      case '해외진출':
+        keyword = '해외';
+        break;
+      case '교육지원':
         keyword = '교육';
         break;
-      case '금융 지원':
-        keyword = '금융';
-        break;
-      case '생활·복지 지원':
-        keyword = '생활';
-        break;
-      case '취업 지원':
-        keyword = '취업';
+      case '맞춤형상담서비스':
+        keyword = '상담';
         break;
       default:
         keyword = widget.category;
@@ -321,196 +321,200 @@ class _PolicyListPageState extends State<PolicyListPage> {
                     ? const Center(
                         child: Text('검색 결과가 없습니다.', style: TextStyle(fontSize: 16, color: Colors.grey)),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: filteredPolicies.length,
-                        itemBuilder: (context, index) {
-                          final raw = filteredPolicies[index];
-                          final n = _normalizeItem(raw); // 공통 키로 사용
+                    : Scrollbar(
+                        thumbVisibility: true,
+                        child: ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: filteredPolicies.length,
+                          itemBuilder: (context, index) {
+                            final raw = filteredPolicies[index];
+                            final n = _normalizeItem(raw); // 공통 키로 사용
 
-                          final titleText    = (n['title'] ?? '제목 없음').toString();
-                          final descText     = (n['description'] ?? '').toString();
-                          final locationText = (n['location'] ?? '').toString();
-                          final amountText   = (n['amount'] ?? '').toString();
-                          final deadlineText = (n['deadline'] ?? '').toString();
-                          final statusText   = (n['status'] ?? '').toString();
-                          final phoneText    = (n['phone'] ?? '').toString();
-                          final applyRange   = (n['applyRange'] ?? '').toString();
+                            final titleText    = (n['title'] ?? '제목 없음').toString();
+                            final descText     = (n['description'] ?? '').toString();
+                            final locationText = (n['location'] ?? '').toString();
+                            final amountText   = (n['amount'] ?? '').toString();
+                            final deadlineText = (n['deadline'] ?? '').toString();
+                            final statusText   = (n['status'] ?? '').toString();
+                            final phoneText    = (n['phone'] ?? '').toString();
+                            final applyRange   = (n['applyRange'] ?? '').toString();
 
-                          // 기간/마감 라벨 구성: 범위가 있으면 범위 우선
-                          final deadlineLabel = applyRange.isNotEmpty
-                              ? '신청 기간: $applyRange'
-                              : (deadlineText.isNotEmpty && deadlineText != '상시'
-                                  ? '마감: $deadlineText'
-                                  : (deadlineText == '상시' ? '상시 접수' : ''));
+                            // 기간/마감 라벨 구성: 범위가 있으면 범위 우선
+                            final deadlineLabel = applyRange.isNotEmpty
+                                ? '신청 기간: $applyRange'
+                                : (deadlineText.isNotEmpty && deadlineText != '상시'
+                                    ? '마감: $deadlineText'
+                                    : (deadlineText == '상시' ? '상시 접수' : ''));
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.1),
-                                  spreadRadius: 1,
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          titleText,
-                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      // 하트 버튼
-                                      GestureDetector(
-                                        onTap: () => _toggleFavorite(raw),
-                                        child: Icon(
-                                          _dataManager.isBookmarked(n['id'])
-                                              ? Icons.favorite
-                                              : Icons.favorite_border,
-                                          color: _dataManager.isBookmarked(n['id']) ? Colors.red : Colors.grey,
-                                          size: 24,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // 정책 상태 배지 (센터는 없음)
-                                      if (statusText.isNotEmpty)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: statusText == '신청가능' ? Colors.green[100] : Colors.orange[100],
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            statusText,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: statusText == '신청가능' ? Colors.green[700] : Colors.orange[700],
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    spreadRadius: 1,
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
                                   ),
-
-                                  const SizedBox(height: 8),
-                                  if (descText.isNotEmpty)
-                                    Text(descText, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-
-                                  const SizedBox(height: 12),
-
-                                  if (locationText.isNotEmpty)
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.location_on, size: 16, color: Colors.grey[500]),
-                                        const SizedBox(width: 4),
                                         Expanded(
                                           child: Text(
-                                            locationText,
-                                            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                                            titleText,
+                                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                           ),
                                         ),
-                                      ],
-                                    ),
-
-                                  if (phoneText.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.phone, size: 16, color: Colors.grey[500]),
-                                          const SizedBox(width: 4),
-                                          Text(phoneText, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                                        ],
-                                      ),
-                                    ),
-
-                                  if (amountText.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.attach_money, size: 16, color: Colors.grey[500]),
-                                          const SizedBox(width: 4),
-                                          Text(amountText, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                                        ],
-                                      ),
-                                    ),
-
-                                  if (deadlineLabel.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.schedule, size: 16, color: Colors.grey[500]),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            deadlineLabel,
-                                            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                  const SizedBox(height: 12),
-
-                                  // 정책일 때만 상세/신청 버튼 및 네비게이션
-                                  if (n['type'] == 'policy')
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: OutlinedButton(
-                                            onPressed: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) => PolicyDetailPage(policy: n),
-                                                ),
-                                              );
-                                            },
-                                            style: OutlinedButton.styleFrom(
-                                              side: BorderSide(color: Colors.blue[300]!),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                            ),
-                                            child: const Text('상세보기', style: TextStyle(color: Colors.blue)),
+                                        // 하트 버튼
+                                        GestureDetector(
+                                          onTap: () => _toggleFavorite(raw),
+                                          child: Icon(
+                                            _dataManager.isBookmarked(n['id'])
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
+                                            color: _dataManager.isBookmarked(n['id']) ? Colors.red : Colors.grey,
+                                            size: 24,
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        Expanded(
-                                          child: ElevatedButton(
-                                            onPressed: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) => PolicyDetailPage(policy: n),
-                                                ),
-                                              );
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.blue,
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        // 정책 상태 배지 (센터는 없음)
+                                        if (statusText.isNotEmpty)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: statusText == '신청가능' ? Colors.green[100] : Colors.orange[100],
+                                              borderRadius: BorderRadius.circular(8),
                                             ),
-                                            child: const Text('신청하기', style: TextStyle(color: Colors.white)),
+                                            child: Text(
+                                              statusText,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: statusText == '신청가능' ? Colors.green[700] : Colors.orange[700],
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
                                           ),
-                                        ),
                                       ],
                                     ),
-                                  // 센터(type == 'center')는 버튼 없음 → detail 이동하지 않음
-                                ],
+
+                                    const SizedBox(height: 8),
+                                    if (descText.isNotEmpty)
+                                      Text(descText, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+
+                                    const SizedBox(height: 12),
+
+                                    if (locationText.isNotEmpty)
+                                      Row(
+                                        children: [
+                                          Icon(Icons.location_on, size: 16, color: Colors.grey[500]),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              locationText,
+                                              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                    if (phoneText.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.phone, size: 16, color: Colors.grey[500]),
+                                            const SizedBox(width: 4),
+                                            Text(phoneText, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                                          ],
+                                        ),
+                                      ),
+
+                                    if (amountText.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.attach_money, size: 16, color: Colors.grey[500]),
+                                            const SizedBox(width: 4),
+                                            Text(amountText, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                                          ],
+                                        ),
+                                      ),
+
+                                    if (deadlineLabel.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.schedule, size: 16, color: Colors.grey[500]),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              deadlineLabel,
+                                              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                    const SizedBox(height: 12),
+
+                                    // 정책일 때만 상세/신청 버튼 및 네비게이션
+                                    if (n['type'] == 'policy')
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => PolicyDetailPage(policy: n),
+                                                  ),
+                                                );
+                                              },
+                                              style: OutlinedButton.styleFrom(
+                                                side: BorderSide(color: Colors.blue[300]!),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              child: const Text('상세보기', style: TextStyle(color: Colors.blue)),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: ElevatedButton(
+                                              onPressed: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => PolicyDetailPage(policy: n),
+                                                  ),
+                                                );
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.blue,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              child: const Text('신청하기', style: TextStyle(color: Colors.white)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    // 센터(type == 'center')는 버튼 없음 → detail 이동하지 않음
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
           ),
         ],
