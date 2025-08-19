@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../common_bottom_navigation.dart';
 import 'account_info_page.dart';
 import 'notice_page.dart';
@@ -90,8 +91,11 @@ class _MorePageState extends State<MorePage> {
           Opacity(
             opacity: 0.65,
             child: GestureDetector(
-              onTap: () {
-                // 로그아웃 기능 추가 가능
+              onTap: () async {
+                // 실제 로그아웃: 토큰 삭제 후 로그인 화면으로 이동
+                await AuthService.logout();
+                if (!context.mounted) return;
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
               },
               child: const Text(
                 '로그아웃',

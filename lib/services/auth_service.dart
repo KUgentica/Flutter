@@ -158,12 +158,28 @@ class AuthService {
     return prefs.getString('accessToken');
   }
   
-  // 로그아웃 (토큰 삭제)
+  // 로그아웃 (토큰/사용자 정보 삭제 + 서버 쿠키 무효화 시도)
   static Future<void> logout() async {
+    try {
+      // 서버에 refresh 쿠키 무효화를 요청 (있으면)
+      // 서버에 엔드포인트가 없더라도 앱 동작에 영향 없도록 무시
+      await http.post(Uri.parse('$baseUrl/logout')).catchError((_) {});
+    } catch (_) {}
+
+    // 로그아웃 전에 사용자 채팅 기록 초기화 시도
+    try {
+      await clearChatMessages();
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString('user_email');
     await prefs.remove('accessToken');
     await prefs.remove('refreshToken');
-    print('🚪 로그아웃 완료');
+    await prefs.remove('user_email');
+    if (email != null) {
+      await prefs.remove('onboarding_completed_$email');
+    }
+    print('🚪 로그아웃 완료: 토큰/사용자 정보 삭제');
   }
   
   // 인증된 요청을 위한 헤더 생성
@@ -548,6 +564,63 @@ class AuthService {
       print('💥 오류 타입: ${e.runtimeType}');
       print('💥 스택 트레이스:');
       print(e);
+    }
+  }
+
+  // 사용자 채팅 기록 전체 삭제 (가능한 엔드포인트들을 순차 시도)
+  static Future<bool> clearChatMessages({String? email}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userEmail = email ?? prefs.getString('user_email');
+      if (userEmail == null || userEmail.isEmpty) {
+        print('❌ clearChatMessages: 사용자 이메일이 없습니다.');
+        return false;
+      }
+
+      print('🧹 채팅 기록 초기화 시도: $userEmail');
+
+      // 1) DELETE 방식 (권장 가정)
+      try {
+        final resp = await http.delete(
+          Uri.parse('$baseUrl/chat/clear?userEmail=$userEmail'),
+          headers: {'Content-Type': 'application/json'},
+        );
+        print('🧹 DELETE /chat/clear 응답: ${resp.statusCode} ${resp.body}');
+        if (resp.statusCode == 200) return true;
+      } catch (e) {
+        print('⚠️ DELETE /chat/clear 실패: $e');
+      }
+
+      // 2) POST 방식 (대안 가정)
+      try {
+        final resp = await http.post(
+          Uri.parse('$baseUrl/chat/clear'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'userEmail': userEmail}),
+        );
+        print('🧹 POST /chat/clear 응답: ${resp.statusCode} ${resp.body}');
+        if (resp.statusCode == 200) return true;
+      } catch (e) {
+        print('⚠️ POST /chat/clear 실패: $e');
+      }
+
+      // 3) 다른 네이밍 대안도 시도 (옵션)
+      try {
+        final resp = await http.delete(
+          Uri.parse('$baseUrl/chat/deleteAll?userEmail=$userEmail'),
+          headers: {'Content-Type': 'application/json'},
+        );
+        print('🧹 DELETE /chat/deleteAll 응답: ${resp.statusCode} ${resp.body}');
+        if (resp.statusCode == 200) return true;
+      } catch (e) {
+        print('⚠️ DELETE /chat/deleteAll 실패: $e');
+      }
+
+      print('❌ 채팅 기록 초기화 엔드포인트를 찾지 못했습니다. (무시)');
+      return false;
+    } catch (e) {
+      print('💥 clearChatMessages 오류: $e');
+      return false;
     }
   }
 

@@ -162,10 +162,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
               // 헤더
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Row(
+                child: const Row(
                   children: [
-                    const SizedBox(width: 48), // 더보기 버튼과 동일한 너비
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         '캘린더',
                         style: TextStyle(
@@ -175,10 +174,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                         textAlign: TextAlign.center,
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert, color: Color(0xFF1A1B1C)),
-                      onPressed: () {},
                     ),
                   ],
                 ),

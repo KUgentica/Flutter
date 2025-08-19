@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/nav_row.dart';
+import '../services/auth_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -65,14 +66,21 @@ class _SettingsPageState extends State<SettingsPage> {
           Center(
             child: Opacity(
               opacity: 0.65,
-              child: Text(
-                '로그아웃',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: -0.43,
-                  decoration: TextDecoration.underline,
-                  color: Colors.black,
+              child: GestureDetector(
+                onTap: () async {
+                  await AuthService.logout();
+                  if (!context.mounted) return;
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                },
+                child: const Text(
+                  '로그아웃',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: -0.43,
+                    decoration: TextDecoration.underline,
+                    color: Colors.black,
+                  ),
                 ),
               ),
             ),

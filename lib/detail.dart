@@ -162,12 +162,7 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
                 ),
               ),
             ),
-            actions: [
-              IconButton(
-                onPressed: () => debugPrint('[DETAIL] share id=$id title=$title'),
-                icon: const Icon(Icons.share, color: Colors.white),
-              ),
-            ],
+            // 공유 아이콘 제거: 의미 없는 액션 삭제
           ),
 
           // 본문
