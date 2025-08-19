@@ -40,7 +40,7 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
       final prefs = await SharedPreferences.getInstance();
       
       // 사용자 이메일 로드
-      final email = prefs.getString('userEmail');
+      final email = prefs.getString('user_email');
       if (email == null) {
         print('❌ 사용자 이메일을 찾을 수 없습니다.');
         return;

@@ -56,7 +56,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       // 사용자 이메일 가져오기
       final prefs = await SharedPreferences.getInstance();
-      final userEmail = prefs.getString('userEmail');
+      final userEmail = prefs.getString('user_email');
       if (userEmail == null) {
         print('❌ 사용자 이메일을 찾을 수 없습니다.');
         ScaffoldMessenger.of(context).showSnackBar(
