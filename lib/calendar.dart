@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'bookmark.dart';
-import 'chatbot_screen.dart';
 import 'common_bottom_navigation.dart';
 import 'data_manager.dart';
 

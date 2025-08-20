@@ -1,14 +1,9 @@
-import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'login.dart';
-import 'signup.dart';
-import 'restore.dart';
-import 'list.dart';
-import 'detail.dart';
+import 'dart:async';
 import 'search.dart';
+import 'list.dart';
 import 'common_bottom_navigation.dart';
+import 'data_manager.dart';
 
 
 class MyHomePage extends StatefulWidget {

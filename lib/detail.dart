@@ -93,7 +93,6 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     // 기간/상태
     final aplyYmd     = _s(p['aplyYmd'] ?? raw['aplyYmd']);               // "YYYYMMDD ~ YYYYMMDD" 형식일 수 있음
     final deadline    = _s(p['deadline'] ?? raw['plcyDd']);
-    final statusText  = _s(p['status'] ?? raw['plcyStatus']);
 
     // 금액
     final plcyAmt     = _s(p['amount'] ?? raw['plcyAmt']);
@@ -134,7 +133,6 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     final refUrl1 = _s(p['refUrl1'] ?? raw['refUrlAddr1']);
     final refUrl2 = _s(p['refUrl2'] ?? raw['refUrlAddr2']);
     final List<String> urls = [aplyUrl, refUrl1, refUrl2].where((u) => u.isNotEmpty).toList();
-    final String? mainUrl = urls.isNotEmpty ? urls.first : null;
     // 지역(우편번호) 그대로 노출
     final zipRegion = zipCd.isNotEmpty ? zipCd : '-';
 
@@ -159,7 +157,7 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.blue[400]!, Colors.blue[600]!],
+                    colors: [Colors.blue[400] ?? Colors.blue, Colors.blue[600] ?? Colors.blue],
                   ),
                 ),
                 child: Center(
@@ -180,8 +178,8 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
                   if (badge != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(color: badge!.bg, borderRadius: BorderRadius.circular(20)),
-                      child: Text(badge!.label, style: TextStyle(color: badge!.fg, fontWeight: FontWeight.w600)),
+                      decoration: BoxDecoration(color: badge.bg, borderRadius: BorderRadius.circular(20)),
+                      child: Text(badge.label, style: TextStyle(color: badge.fg, fontWeight: FontWeight.w600)),
                     ),
 
                   const SizedBox(height: 16),
@@ -264,7 +262,7 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
                       decoration: BoxDecoration(
                         color: Colors.grey[50],
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[200]!),
+                        border: Border.all(color: Colors.grey[200] ?? Colors.grey),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
                     );

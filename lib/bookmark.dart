@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'calendar.dart';
-import 'chatbot_screen.dart';
 import 'common_bottom_navigation.dart';
 import 'data_manager.dart';
 import 'detail.dart';
@@ -17,51 +15,131 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   final DataManager _dataManager = DataManager();
+  
+  // 즐겨찾기 목록
+  List<BookmarkItem> _bookmarks = [];
+  bool _isLoading = true;
 
-  // 초기 데이터 (빈 리스트로 설정)
-  final List<BookmarkItem> _initialBookmarks = [];
-
-  // 즐겨찾기 목록 가져오기 (DataManager + 초기 데이터)
-  List<BookmarkItem> get _bookmarks {
-    final dataManagerBookmarks = _dataManager.bookmarks;
-    final allBookmarks = [..._initialBookmarks, ...dataManagerBookmarks];
-    // 중복 제거 (ID 기준)
-    final uniqueBookmarks = <BookmarkItem>[];
-    final seenIds = <String>{};
-    
-    for (final bookmark in allBookmarks) {
-      if (!seenIds.contains(bookmark.id)) {
-        seenIds.add(bookmark.id);
-        uniqueBookmarks.add(bookmark);
+  @override
+  void initState() {
+    super.initState();
+    print('🚀 BookmarkScreen.initState() 호출됨');
+    _loadBookmarks();
+  }
+  
+  // 즐겨찾기 목록 로드
+  Future<void> _loadBookmarks() async {
+    print('🔄 _loadBookmarks() 메서드 시작!');
+    try {
+      print('🔄 즐겨찾기 로드 시작...');
+      setState(() {
+        _isLoading = true;
+      });
+      
+      print('📡 _dataManager.bookmarks 호출 전...');
+      final bookmarks = await _dataManager.bookmarks;
+      print('✅ DataManager.bookmarks 응답: ${bookmarks.length}개');
+      
+      // DB에서 받아온 각 즐겨찾기의 isPinned 상태 확인
+      for (int i = 0; i < bookmarks.length; i++) {
+        final bookmark = bookmarks[i];
+        print('🔍 DB에서 받은 즐겨찾기 $i: title=${bookmark.title}, isPinned=${bookmark.isPinned}, isPinned 타입=${bookmark.isPinned.runtimeType}');
+        print('🔍 전체 BookmarkItem 데이터: id=${bookmark.id}, policyId=${bookmark.policyId}, userId=${bookmark.userId}');
       }
+      
+      setState(() {
+        _bookmarks = bookmarks;
+        _isLoading = false;
+      });
+      print('🎯 즐겨찾기 로드 완료: _bookmarks.length = ${_bookmarks.length}');
+      
+      // 로드된 즐겨찾기의 isPinned 상태 재확인
+      final pinnedCount = _bookmarks.where((b) => b.isPinned).length;
+      print('📌 로드 완료 후 핀된 즐겨찾기: $pinnedCount개');
+      
+      // setState 후 _bookmarks 상태 재확인
+      for (int i = 0; i < _bookmarks.length; i++) {
+        print('🔍 setState 후 _bookmarks $i: title=${_bookmarks[i].title}, isPinned=${_bookmarks[i].isPinned}');
+      }
+      
+    } catch (e) {
+      print('💥 즐겨찾기 로드 실패: $e');
+      print('💥 오류 스택 트레이스: ${StackTrace.current}');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // 즐겨찾기 목록 가져오기 (필터링 및 정렬)
+  List<BookmarkItem> get _filteredBookmarks {
+    print('🔍 _filteredBookmarks 호출됨: _bookmarks.length = ${_bookmarks.length}');
+    
+    if (_bookmarks.isEmpty) {
+      print('⚠️ _bookmarks가 비어있음');
+      return [];
     }
     
+    // 각 아이템의 isPinned 상태 출력
+    for (int i = 0; i < _bookmarks.length; i++) {
+      print('🔍 아이템 $i: ${_bookmarks[i].title}, isPinned: ${_bookmarks[i].isPinned}');
+    }
+    
+    final filteredBookmarks = _bookmarks.where((bookmark) {
+      if (_searchQuery.isEmpty) return true;
+      return bookmark.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+             bookmark.description.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+    
+    print('🔍 검색 필터링 후: ${filteredBookmarks.length}개');
+    
     // 핀된 항목을 맨 위로 정렬
-    uniqueBookmarks.sort((a, b) {
+    filteredBookmarks.sort((a, b) {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
       return 0; // 둘 다 핀되었거나 둘 다 핀되지 않은 경우 원래 순서 유지
     });
     
-    return uniqueBookmarks;
+    print('🔍 정렬 후: 핀된 항목 ${filteredBookmarks.where((b) => b.isPinned).length}개');
+    
+    // 정렬 후 각 아이템의 순서와 isPinned 상태 출력
+    for (int i = 0; i < filteredBookmarks.length; i++) {
+      print('🔍 정렬 후 아이템 $i: ${filteredBookmarks[i].title}, isPinned: ${filteredBookmarks[i].isPinned}');
+    }
+    
+    return filteredBookmarks;
   }
 
   // 핀 토글 함수 (모든 bookmark 아이템에 대해 작동)
-  void _togglePin(BookmarkItem item) {
+  void _togglePin(BookmarkItem item) async {
+    print('📌 핀 토글 시작: ${item.title}, 현재 isPinned: ${item.isPinned}');
+    print('🔍 사용할 ID: item.id=${item.id}, item.policyId=${item.policyId}');
+    
+    // 1. UI 즉시 반영 (사용자 경험)
     setState(() {
-      final updatedItem = BookmarkItem(
-        title: item.title,
-        description: item.description,
-        time: item.time,
-        id: item.id,
-        isPinned: !item.isPinned,
-        detailData: item.detailData,
-      );
-      
-      // DataManager에서 해당 아이템 업데이트
-      _dataManager.removeBookmark(item.id);
-      _dataManager.addBookmark(updatedItem);
+      item.isPinned = !item.isPinned;
     });
+    print('✅ UI 즉시 업데이트 완료: isPinned = ${item.isPinned}');
+    
+    try {
+      // 2. DB에 상태 저장
+      print('📡 DataManager.toggleBookmarkPin 호출 중... policyId: ${item.policyId}');
+      await _dataManager.toggleBookmarkPin(item.policyId, item.isPinned);
+      print('✅ DataManager.toggleBookmarkPin 완료');
+      
+      // 3. DB에서 최신 상태 읽어와서 동기화
+      print('🔄 DB 상태 동기화 중...');
+      await _loadBookmarks();
+      print('✅ DB 상태 동기화 완료');
+      
+    } catch (e) {
+      print('💥 핀 상태 변경 실패: $e');
+      // 실패 시 UI 상태 되돌리기
+      setState(() {
+        item.isPinned = !item.isPinned;
+      });
+      print('🔄 UI 상태 되돌림: isPinned = ${item.isPinned}');
+    }
   }
 
   @override
@@ -164,18 +242,20 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
   }
 
   Widget _buildBookmarkList() {
-    // 검색 필터링
-    List<BookmarkItem> filteredBookmarks = _bookmarks.where((item) {
-      return item.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             item.description.toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
-
-    // 핀된 아이템을 상단으로 정렬
-    filteredBookmarks.sort((a, b) {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return 0;
-    });
+    // 로딩 중일 때
+    if (_isLoading) {
+      print('⏳ 즐겨찾기 로딩 중...');
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+    
+    print('🔍 _buildBookmarkList 호출됨: _bookmarks.length = ${_bookmarks.length}');
+    
+    // 검색 필터링 (이미 _filteredBookmarks에서 정렬됨)
+    List<BookmarkItem> filteredBookmarks = _filteredBookmarks;
+    
+    print('🔍 필터링된 즐겨찾기: ${filteredBookmarks.length}개');
 
     // 검색 중일 때는 검색 결과 스타일로 표시
     if (_searchQuery.isNotEmpty) {
@@ -254,10 +334,10 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                 },
               );
             },
-            onDismissed: (direction) {
+            onDismissed: (direction) async {
               // 즐겨찾기에서 삭제
-              _dataManager.removeBookmark(item.id);
-              setState(() {});
+              await _dataManager.removeBookmark(item.id);
+              await _loadBookmarks(); // 목록 새로고침
               
               // 삭제 완료 메시지
               ScaffoldMessenger.of(context).showSnackBar(
@@ -266,10 +346,10 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                   duration: const Duration(seconds: 2),
                   action: SnackBarAction(
                     label: '실행취소',
-                    onPressed: () {
+                    onPressed: () async {
                       // 실행취소 기능
-                      _dataManager.addBookmark(item);
-                      setState(() {});
+                      await _dataManager.addBookmark(item);
+                      await _loadBookmarks(); // 목록 새로고침
                     },
                   ),
                 ),
@@ -358,10 +438,10 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
               },
             );
           },
-          onDismissed: (direction) {
+          onDismissed: (direction) async {
             // 즐겨찾기에서 삭제
-            _dataManager.removeBookmark(item.id);
-            setState(() {});
+            await _dataManager.removeBookmark(item.id);
+            await _loadBookmarks(); // 목록 새로고침
             
             // 삭제 완료 메시지
             ScaffoldMessenger.of(context).showSnackBar(
@@ -370,10 +450,10 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                 duration: const Duration(seconds: 2),
                 action: SnackBarAction(
                   label: '실행취소',
-                  onPressed: () {
+                  onPressed: () async {
                     // 실행취소 기능 (선택사항)
-                    _dataManager.addBookmark(item);
-                    setState(() {});
+                    await _dataManager.addBookmark(item);
+                    await _loadBookmarks(); // 목록 새로고침
                   },
                 ),
               ),
@@ -392,10 +472,15 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
         final policyData = {
           'title': item.title,
           'description': item.description,
-          'amount': item.detailData.leftAmount,
+          'amount': item.detailData.leftAmount.isNotEmpty ? item.detailData.leftAmount : '금액 정보 없음',
           'location': '전국', // 기본값
-          'deadline': item.detailData.rightAmount,
+          'deadline': item.detailData.rightAmount.isNotEmpty ? item.detailData.rightAmount : '기간 정보 없음',
           'status': '신청가능', // 기본값
+          'category': item.detailData.bannerTitle.isNotEmpty ? item.detailData.bannerTitle : '카테고리 정보 없음',
+          'keywords': '키워드 정보 없음', // 기본값
+          'applicationMethod': item.description.isNotEmpty ? item.description : '신청 방법 정보 없음',
+          'applicationPeriod': item.detailData.rightAmount.isNotEmpty ? item.detailData.rightAmount : '신청 기간 정보 없음',
+          'region': '지역 정보 없음', // 기본값
         };
 
         // 검색창 초기화
@@ -493,16 +578,28 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
   }
 
   Widget _buildBookmarkItem(BookmarkItem item) {
+    print('🔍 _buildBookmarkItem 렌더링: ${item.title}, isPinned: ${item.isPinned}, id: ${item.id}, policyId: ${item.policyId}');
+    
+    // 핀 아이콘 상태 확인
+    final pinIcon = item.isPinned ? Icons.push_pin : Icons.push_pin_outlined;
+    final pinColor = item.isPinned ? Colors.amber : const Color(0xFF707B81);
+    print('📌 핀 아이콘 상태: icon=$pinIcon, color=$pinColor, isPinned=${item.isPinned}');
+    
     return GestureDetector(
       onTap: () {
         // BookmarkItem을 Map 형태로 변환하여 PolicyDetailPage로 이동
         final policyData = {
           'title': item.title,
           'description': item.description,
-          'amount': item.detailData.leftAmount,
+          'amount': item.detailData.leftAmount.isNotEmpty ? item.detailData.leftAmount : '금액 정보 없음',
           'location': '전국', // 기본값
-          'deadline': item.detailData.rightAmount,
+          'deadline': item.detailData.rightAmount.isNotEmpty ? item.detailData.rightAmount : '기간 정보 없음',
           'status': '신청가능', // 기본값
+          'category': item.detailData.bannerTitle.isNotEmpty ? item.detailData.bannerTitle : '카테고리 정보 없음',
+          'keywords': '키워드 정보 없음', // 기본값
+          'applicationMethod': item.description.isNotEmpty ? item.description : '신청 방법 정보 없음',
+          'applicationPeriod': item.detailData.rightAmount.isNotEmpty ? item.detailData.rightAmount : '신청 기간 정보 없음',
+          'region': '지역 정보 없음', // 기본값
         };
 
         Navigator.push(
@@ -525,8 +622,8 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
             GestureDetector(
               onTap: () => _togglePin(item),
               child: Icon(
-                item.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                color: item.isPinned ? Colors.amber : const Color(0xFF707B81),
+                pinIcon,
+                color: pinColor,
                 size: 24,
               ),
             ),
@@ -577,6 +674,8 @@ class BookmarkItem {
   final String description;
   final String time;
   final String id;
+  final String userId; // 사용자 ID 추가
+  final String policyId; // 정책 ID 추가
   bool isPinned;
   final BookmarkDetailData detailData;
 
@@ -585,6 +684,8 @@ class BookmarkItem {
     required this.description,
     required this.time,
     required this.id,
+    required this.userId, // 사용자 ID 필수
+    required this.policyId, // 정책 ID 필수
     required this.isPinned,
     required this.detailData,
   });
