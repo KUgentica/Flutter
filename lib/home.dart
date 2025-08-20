@@ -293,8 +293,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => PolicyListPage(
-                                  category: categories[index]['title'],
-                                  categoryData: categories[index],
+                                  category: categories[index]['title']
                                 ),
                               ),
                             );

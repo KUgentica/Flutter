@@ -132,7 +132,7 @@ class NavigationHelper {
       case 1:
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const BookmarkScreen()),
+          MaterialPageRoute(builder: (context) => const BookmarkPage()),
         );
         break;
       
