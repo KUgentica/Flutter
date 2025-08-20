@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../common_bottom_navigation.dart';
 import 'account_info_page.dart';
-import 'notice_page.dart';
-import 'qna_page.dart';
-import 'terms_page.dart';
 
 class MorePage extends StatefulWidget {
   const MorePage({super.key});
@@ -20,71 +17,38 @@ class _MorePageState extends State<MorePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text(
+          '더보기',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        centerTitle: true,
         titleSpacing: 16,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            color: Colors.black87,
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
-          ),
-        ],
       ),
       body: Column(
         children: [
           const SizedBox(height: 16),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: GridView.count(
-              shrinkWrap: true,
-              crossAxisCount: 2,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 1.1,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _MenuBox(
-                  icon: Icons.person_outline,
-                  label: '계정 정보',
-                  background: const Color.fromRGBO(234, 234, 234, 0.5),
-                  iconColor: const Color(0xFF0088FF),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const AccountInfoPage()),
-                  ),
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Container(
+              height: 120,
+              child: _MenuBox(
+                icon: Icons.person_outline,
+                label: '계정 정보',
+                background: const Color.fromRGBO(234, 234, 234, 0.5),
+                iconColor: const Color(0xFF0088FF),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AccountInfoPage()),
                 ),
-                _MenuBox(
-                  icon: Icons.assignment_outlined,
-                  label: '공지사항',
-                  background: const Color.fromRGBO(234, 234, 234, 0.5),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const NoticePage()),
-                  ),
-                ),
-                _MenuBox(
-                  icon: Icons.edit_note_outlined,
-                  label: '자주 묻는 질문',
-                  background: const Color.fromRGBO(234, 234, 234, 0.5),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const QnaPage()),
-                  ),
-                ),
-                _MenuBox(
-                  icon: Icons.warning_amber_outlined,
-                  label: '서비스 이용약관',
-                  background: const Color.fromRGBO(234, 234, 234, 0.5),
-                  iconColor: const Color.fromRGBO(249, 49, 4, 0.99),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const TermsPage()),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 32),

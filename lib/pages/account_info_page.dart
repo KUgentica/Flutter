@@ -92,13 +92,6 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
           '계정정보',
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 22, color: Colors.black),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            color: Colors.black87,
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
