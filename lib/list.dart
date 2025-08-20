@@ -5,6 +5,7 @@ import 'calendar.dart';
 import 'data_manager.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PolicyListPage extends StatefulWidget {
   final String category;
@@ -23,10 +24,15 @@ class PolicyListPage extends StatefulWidget {
 class _PolicyListPageState extends State<PolicyListPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isLoading = false;
   final DataManager _dataManager = DataManager();
-
+  
+  // 즐겨찾기 상태를 관리하는 맵
+  final Map<String, bool> _bookmarkStates = {};
+  
+  // 정책/센터 데이터
   List<Map<String, dynamic>> _policies = [];
-  bool _isLoading = true;
+  List<Map<String, dynamic>> _centers = [];
 
   bool get isCenter => widget.category == '청년 센터';
 
@@ -34,6 +40,21 @@ class _PolicyListPageState extends State<PolicyListPage> {
   void initState() {
     super.initState();
     _loadData();
+    _loadBookmarkStates();
+  }
+  
+  // 즐겨찾기 상태 로드
+  Future<void> _loadBookmarkStates() async {
+    try {
+      final bookmarks = await _dataManager.bookmarks;
+      setState(() {
+        for (final bookmark in bookmarks) {
+          _bookmarkStates[bookmark.id] = true;
+        }
+      });
+    } catch (e) {
+      print('즐겨찾기 상태 로드 오류: $e');
+    }
   }
 
   Future<void> _loadData() async {
@@ -97,7 +118,7 @@ class _PolicyListPageState extends State<PolicyListPage> {
 
   /// 청년 센터 전용 API
   Future<void> fetchCenters() async {
-    final url = 'http://10.0.2.2:8080/policy/center';
+    final url = 'http://10.0.2.2:8080/policy/centers';
     try {
       final response = await http.get(Uri.parse(url));
       print('=== [LOG] CENTER 요청: $url');
@@ -107,7 +128,7 @@ class _PolicyListPageState extends State<PolicyListPage> {
         final decoded = json.decode(utf8.decode(response.bodyBytes));
         if (decoded is List) {
           setState(() {
-            _policies = List<Map<String, dynamic>>.from(decoded as List<dynamic>);
+            _centers = List<Map<String, dynamic>>.from(decoded as List<dynamic>);
             _isLoading = false;
           });
         } else {
@@ -184,7 +205,7 @@ class _PolicyListPageState extends State<PolicyListPage> {
       final deadline = aplyYmd.isNotEmpty ? aplyYmd : (plcyDd.isNotEmpty ? plcyDd : '상시');
 
       return {
-        'id':         (p['id'] ?? p['plcyId'] ?? p['plcyNo'] ?? p['policyId'] ?? '').toString(),
+        'id':         (p['plcyId'] ?? p['id'] ?? p['plcyNo'] ?? p['policyId'] ?? '').toString(),
         'title':      (p['plcyTitle'] ?? p['title'] ?? '(제목 없음)').toString(),
         'description': (p['plcyExplnCn'] ?? p['description'] ?? '').toString(),
         'location':   (p['plcyLctr'] ?? p['location'] ?? '').toString(),
@@ -200,48 +221,66 @@ class _PolicyListPageState extends State<PolicyListPage> {
   }
 
   List<Map<String, dynamic>> get filteredPolicies {
-    if (_searchQuery.isEmpty) return _policies;
+    final data = isCenter ? _centers : _policies;
+    if (_searchQuery.isEmpty) return data;
     final q = _searchQuery.toLowerCase();
-    return _policies.where((policy) {
+    return data.where((item) {
       if (isCenter) {
-        final name  = (policy['cntrNm'] ?? '').toString().toLowerCase();
-        final addr  = (policy['cntrAddr'] ?? '').toString().toLowerCase();
-        final daddr = (policy['cntrDaddr'] ?? '').toString().toLowerCase();
+        final name  = (item['cntrNm'] ?? '').toString().toLowerCase();
+        final addr  = (item['cntrAddr'] ?? '').toString().toLowerCase();
+        final daddr = (item['cntrDaddr'] ?? '').toString().toLowerCase();
         return name.contains(q) || addr.contains(q) || daddr.contains(q);
       } else {
-        final title = (policy['plcyTitle'] ?? policy['title'] ?? '').toString().toLowerCase();
-        final desc  = (policy['plcyExplnCn'] ?? policy['description'] ?? '').toString().toLowerCase();
+        final title = (item['plcyTitle'] ?? item['title'] ?? '').toString().toLowerCase();
+        final desc  = (item['plcyExplnCn'] ?? item['description'] ?? '').toString().toLowerCase();
         return title.contains(q) || desc.contains(q);
       }
     }).toList();
   }
 
   // 하트 버튼 클릭 시 처리 (센터는 캘린더 추가 생략)
-  void _toggleFavorite(Map<String, dynamic> raw) {
+  void _toggleFavorite(Map<String, dynamic> raw) async {
     final n = _normalizeItem(raw);
-    setState(() {
-      final policyId = n['id'];
-      if (_dataManager.isBookmarked(policyId)) {
-        _dataManager.removeBookmark(policyId);
-      } else {
-        _addToBookmarks(n);
-        if (n['type'] != 'center') {
-          _addToCalendar(n);
-        }
+    final policyId = n['id'];
+    
+    if (_bookmarkStates[policyId] == true) {
+      // 즐겨찾기 제거
+      await _dataManager.removeBookmark(policyId);
+      _bookmarkStates[policyId] = false;
+    } else {
+      // 즐겨찾기 추가
+      await _addToBookmarks(n);
+      if (n['type'] != 'center') {
+        _addToCalendar(n);
       }
-    });
+      _bookmarkStates[policyId] = true;
+    }
+    
+    // UI 업데이트
+    setState(() {});
   }
 
   // 즐겨찾기에 추가 (정규화된 맵 기준)
-  void _addToBookmarks(Map<String, dynamic> n) {
+  Future<void> _addToBookmarks(Map<String, dynamic> n) async {
     final now = DateTime.now();
     final timeString = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+    // 현재 사용자 ID 가져오기
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('user_email') ?? 'unknown';
+
+    // policyId를 우선적으로 사용, 없으면 id 사용
+    final policyId = n['policyId'] ?? n['id'] ?? 'unknown';
+    
+    print('🔍 즐겨찾기 추가: title=${n['title']}, policyId=$policyId, id=${n['id']}');
 
     final bookmarkItem = BookmarkItem(
       title: n['title'],
       description: (n['description'] as String?)?.isNotEmpty == true ? n['description'] : n['location'],
       time: timeString,
-      id: n['id'],
+      id: policyId, // policyId를 id로 사용
+      userId: userId, // 사용자 ID 추가
+      policyId: policyId, // policyId 파라미터 추가
       isPinned: false,
       detailData: BookmarkDetailData(
         title: n['title'],
@@ -255,8 +294,8 @@ class _PolicyListPageState extends State<PolicyListPage> {
       ),
     );
 
-    _dataManager.addBookmark(bookmarkItem);
-    print('즐겨찾기에 추가됨: ${n['title']}');
+    await _dataManager.addBookmark(bookmarkItem);
+    print('✅ 즐겨찾기에 추가됨: ${n['title']}, policyId: $policyId');
   }
 
   // 캘린더에 추가 (정규화된 맵 기준, 센터는 호출 안 함)
@@ -378,10 +417,10 @@ class _PolicyListPageState extends State<PolicyListPage> {
                                         GestureDetector(
                                           onTap: () => _toggleFavorite(raw),
                                           child: Icon(
-                                            _dataManager.isBookmarked(n['id'])
+                                            _bookmarkStates[n['id']] == true
                                                 ? Icons.favorite
                                                 : Icons.favorite_border,
-                                            color: _dataManager.isBookmarked(n['id']) ? Colors.red : Colors.grey,
+                                            color: _bookmarkStates[n['id']] == true ? Colors.red : Colors.grey,
                                             size: 24,
                                           ),
                                         ),
