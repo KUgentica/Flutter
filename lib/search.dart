@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/policy.dart';
 import '../services/policy_service.dart';
 import '../services/bookmark_service.dart';
@@ -17,7 +16,6 @@ class _SearchPageState extends State<SearchPage> {
   final FocusNode _searchFocusNode = FocusNode();
   
   // --- State Variables ---
-  List<String> _searchHistory = [];
   List<Policy> _searchResults = [];
   Set<String> _bookmarkedPolicies = {}; // 북마크된 정책 ID들을 저장
   bool _isLoading = false;
@@ -63,9 +61,7 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
-    _loadSearchHistory();
     _searchFocusNode.requestFocus();
-    _loadRecommendedPolicies();
   }
 
   @override
@@ -136,39 +132,6 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  Future<void> _loadSearchHistory() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final history = prefs.getStringList('search_history') ?? [];
-      setState(() {
-        _searchHistory = history;
-      });
-    } catch (e) {
-      print('검색 기록 로드 실패: $e');
-    }
-  }
-
-  Future<void> _saveSearchHistory(String query) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> history = prefs.getStringList('search_history') ?? [];
-      
-      history.remove(query);
-      history.insert(0, query);
-      
-      if (history.length > 10) {
-        history = history.take(10).toList();
-      }
-      
-      await prefs.setStringList('search_history', history);
-      setState(() {
-        _searchHistory = history;
-      });
-    } catch (e) {
-      print('검색 기록 저장 실패: $e');
-    }
-  }
-
   Future<void> _loadRecommendedPolicies() async {
     setState(() {
       _isLoading = true;
@@ -197,7 +160,6 @@ class _SearchPageState extends State<SearchPage> {
 
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
-      _loadRecommendedPolicies();
       return;
     }
 
@@ -223,42 +185,12 @@ class _SearchPageState extends State<SearchPage> {
         _isSearching = false;
         _isLoading = false;
       });
-      
-      if (query.trim().isNotEmpty) {
-        _saveSearchHistory(query);
-      }
     } catch (e) {
       print('검색 실패: $e');
       setState(() {
         _isSearching = false;
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _deleteSearchHistory(String query) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> history = prefs.getStringList('search_history') ?? [];
-      history.remove(query);
-      await prefs.setStringList('search_history', history);
-      setState(() {
-        _searchHistory = history;
-      });
-    } catch (e) {
-      print('검색 기록 삭제 실패: $e');
-    }
-  }
-
-  Future<void> _clearAllSearchHistory() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('search_history');
-      setState(() {
-        _searchHistory = [];
-      });
-    } catch (e) {
-      print('검색 기록 전체 삭제 실패: $e');
     }
   }
 
@@ -302,10 +234,13 @@ class _SearchPageState extends State<SearchPage> {
               ),
               onChanged: (value) {
                 setState(() {});
-                if (value.isEmpty) {
-                  _loadRecommendedPolicies();
-                } else {
+                if (value.isNotEmpty) {
                   _performSearch(value);
+                } else {
+                  setState(() {
+                    _hasSearched = false;
+                    _searchResults = [];
+                  });
                 }
               },
               onSubmitted: (_) {},
@@ -329,76 +264,38 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
 
-          // 검색 결과 또는 검색 기록
+          // 검색 결과
           Expanded(
             child: _hasSearched && !_isSearching
                 ? _buildSearchResults()
-                : _buildSearchHistory(),
+                : _buildEmptyState(),
           ),
         ],
       ),
     );
   }
 
-  // 검색 기록 위젯
-  Widget _buildSearchHistory() {
-    if (_searchHistory.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.history,
-              size: 64,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 16),
-            Text(
-              '검색 기록이 없습니다',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            '최근 검색어',
+  // 빈 상태 위젯
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search,
+            size: 64,
+            color: Colors.grey,
+          ),
+          SizedBox(height: 16),
+          Text(
+            '검색어를 입력해주세요',
             style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.bold,
+              color: Colors.grey,
             ),
           ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: _searchHistory.length,
-            itemBuilder: (context, index) {
-              final query = _searchHistory[index];
-              return ListTile(
-                leading: const Icon(Icons.history, color: Colors.grey),
-                title: Text(query),
-                trailing: IconButton(
-                  onPressed: () => _deleteSearchHistory(query),
-                  icon: const Icon(Icons.close, color: Colors.grey),
-                ),
-                onTap: () {
-                  _searchController.text = query;
-                  _performSearch(query);
-                },
-              );
-            },
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -460,9 +357,7 @@ class _SearchPageState extends State<SearchPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Text(
-            _searchController.text.isEmpty 
-                ? '추천 정책 (${_searchResults.length}개)'
-                : '검색 결과 (${_searchResults.length}개)',
+            '검색 결과 (${_searchResults.length}개)',
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
