@@ -6,6 +6,16 @@
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/LaunchTheme"
         android:enableOnBackInvokedCallback="true">
+         <!-- 알림 아이콘을 지정합니다. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/notification_icon" />
+
+        <!-- 알림 채널을 지정합니다. (Android 8.0 이상 필수) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="high_importance_channel" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

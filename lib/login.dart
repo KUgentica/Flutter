@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart'; // 경로는 실제 파일 위치에 맞게 수정하세요.
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -59,7 +60,21 @@ class _LoginPageState extends State<LoginPage> {
 
       if (result['success']) {
         print('🎉 로그인 성공! 프로필 완성 여부 확인 중...');
-        
+        try {
+        print('FCM 토큰 초기화를 시작합니다...');
+        // initNotifications()는 인스턴스 메소드이므로 객체를 생성해서 호출합니다.
+        final fcmToken = await FirebaseApi().initNotifications();
+        if (fcmToken != null) {
+          print('서버로 FCM 토큰 전송 시도: $fcmToken');
+          // sendTokenToServer는 static 메소드이므로 클래스 이름으로 직접 호출합니다.
+          await FirebaseApi.sendTokenToServer(fcmToken);
+        } else {
+          print('FCM 토큰을 가져오지 못했습니다.');
+        }
+      } catch (e) {
+        print('FCM 토큰 처리 중 오류 발생: $e');
+        // 여기서 사용자에게 알림 기능이 동작하지 않을 수 있다고 알려줄 수 있습니다.
+      }
         // 사용자 이메일 가져오기
         final userEmail = result['email'];
         if (userEmail == null) {
