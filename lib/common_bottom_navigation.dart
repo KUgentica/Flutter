@@ -130,7 +130,7 @@ class NavigationHelper {
         );
         break;
       case 1:
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const BookmarkPage()),
         );

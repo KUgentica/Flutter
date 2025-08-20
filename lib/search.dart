@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/policy.dart';
 import '../services/policy_service.dart';
+import '../services/bookmark_service.dart';
 import 'detail.dart';
 
 class SearchPage extends StatefulWidget {
@@ -17,17 +18,54 @@ class _SearchPageState extends State<SearchPage> {
   
   // --- State Variables ---
   List<String> _searchHistory = [];
-  // ★ 검색 결과를 이제 Policy 객체 목록으로 관리합니다.
   List<Policy> _searchResults = [];
+  Set<String> _bookmarkedPolicies = {}; // 북마크된 정책 ID들을 저장
   bool _isLoading = false;
-  bool _hasSearched = false; // 검색을 한 번이라도 수행했는지 여부
+  bool _hasSearched = false;
+  bool _isSearching = false;
+
+  // 날짜 파싱 유틸 (첫 번째 코드에서 가져옴)
+  DateTime? _parseYMD(String v) {
+    final s = v.trim();
+    if (s.length != 8) return null;
+    final y = int.tryParse(s.substring(0, 4));
+    final m = int.tryParse(s.substring(4, 6));
+    final d = int.tryParse(s.substring(6, 8));
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
+  }
+
+  DateTime? _parseFlexibleDate(String v) {
+    final s = v.trim();
+    if (s.isEmpty) return null;
+    final normalized = s.replaceAll('.', '-').replaceAll(RegExp(r'[^0-9\-]'), '');
+    try {
+      final iso = normalized.length >= 10 ? normalized.substring(0, 10) : normalized;
+      return DateTime.parse(iso);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _deadlineLabelOf(Policy policy) {
+    final deadline = policy.deadline.trim();
+    if (deadline.isEmpty) return '상시 접수';
+    if (deadline == '상시') return '상시 접수';
+    final d = _parseFlexibleDate(deadline);
+    if (d == null) return '마감: $deadline';
+    final now = DateTime.now();
+    if (now.isAfter(d.add(const Duration(days: 1)).subtract(const Duration(seconds: 1)))) {
+      return '마감: $deadline';
+    }
+    return '마감일: $deadline';
+  }
 
   @override
   void initState() {
     super.initState();
     _loadSearchHistory();
     _searchFocusNode.requestFocus();
-    _loadRecommendedPolicies(); // 초기 화면에 추천 정책 로드
+    _loadRecommendedPolicies();
   }
 
   @override
@@ -39,75 +77,190 @@ class _SearchPageState extends State<SearchPage> {
 
   // --- Data Handling ---
 
-  /// SharedPreferences에서 검색 기록을 로드합니다.
-  Future<void> _loadSearchHistory() async {
-    final prefs = await SharedPreferences.getInstance();
+  /// 북마크 상태를 토글하는 함수
+  Future<void> _toggleBookmark(Policy policy) async {
+    final itemId = policy.id;
+    final isCurrentlyBookmarked = _bookmarkedPolicies.contains(itemId);
+
+    // 낙관적 업데이트: UI를 먼저 변경
     setState(() {
-      _searchHistory = prefs.getStringList('search_history') ?? [];
+      if (isCurrentlyBookmarked) {
+        _bookmarkedPolicies.remove(itemId);
+      } else {
+        _bookmarkedPolicies.add(itemId);
+      }
     });
-  }
 
-  /// 검색어를 SharedPreferences에 저장합니다.
-  Future<void> _saveSearchHistory(String query) async {
-    final prefs = await SharedPreferences.getInstance();
-    _searchHistory.remove(query);
-    _searchHistory.insert(0, query);
-    if (_searchHistory.length > 10) {
-      _searchHistory = _searchHistory.sublist(0, 10);
+    bool success;
+    if (isCurrentlyBookmarked) {
+      // 북마크 제거
+      success = await BookmarkService.removeBookmark(itemId);
+    } else {
+      // 북마크 저장
+      success = await BookmarkService.saveBookmark(
+        itemId: itemId,
+        itemType: 'POLICY',
+        title: policy.title,
+        description: policy.description,
+      );
     }
-    await prefs.setStringList('search_history', _searchHistory);
-    setState(() {});
+
+    if (!success) {
+      // API 호출 실패 시 UI 롤백
+      setState(() {
+        if (isCurrentlyBookmarked) {
+          _bookmarkedPolicies.add(itemId);
+        } else {
+          _bookmarkedPolicies.remove(itemId);
+        }
+      });
+
+      // 에러 메시지 표시
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isCurrentlyBookmarked ? '북마크 제거에 실패했습니다.' : '북마크 저장에 실패했습니다.'),
+          ),
+        );
+      }
+    } else {
+      // 성공 메시지 표시
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isCurrentlyBookmarked ? '북마크가 제거되었습니다.' : '북마크에 저장되었습니다.'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    }
   }
 
-  /// 추천 정책을 로드하여 초기 화면에 표시합니다.
+  Future<void> _loadSearchHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final history = prefs.getStringList('search_history') ?? [];
+      setState(() {
+        _searchHistory = history;
+      });
+    } catch (e) {
+      print('검색 기록 로드 실패: $e');
+    }
+  }
+
+  Future<void> _saveSearchHistory(String query) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> history = prefs.getStringList('search_history') ?? [];
+      
+      history.remove(query);
+      history.insert(0, query);
+      
+      if (history.length > 10) {
+        history = history.take(10).toList();
+      }
+      
+      await prefs.setStringList('search_history', history);
+      setState(() {
+        _searchHistory = history;
+      });
+    } catch (e) {
+      print('검색 기록 저장 실패: $e');
+    }
+  }
+
   Future<void> _loadRecommendedPolicies() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       final policies = await PolicyService.getRecommendedPolicies();
-      if (_searchController.text.trim().isEmpty && mounted) {
+      if (_searchController.text.trim().isEmpty) {
         setState(() {
           _searchResults = policies;
-          _hasSearched = true; // 추천도 검색 결과로 간주
+          _hasSearched = true;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
         });
       }
     } catch (e) {
       print('추천 정책 로드 실패: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
-  /// 입력된 검색어로 실제 검색을 수행합니다.
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
       _loadRecommendedPolicies();
       return;
     }
 
-    setState(() => _isLoading = true);
-    await _saveSearchHistory(query);
+    setState(() {
+      _isSearching = true;
+      _isLoading = true;
+    });
 
     try {
-      // ★ PolicyService를 통해 Policy 객체 목록을 직접 받습니다.
       final policies = await PolicyService.searchPolicies(query);
-      if (query == _searchController.text && mounted) {
+      
+      if (query.trim() != _searchController.text.trim()) {
         setState(() {
-          _searchResults = policies;
-          _hasSearched = true;
+          _isSearching = false;
+          _isLoading = false;
         });
+        return;
+      }
+
+      setState(() {
+        _searchResults = policies;
+        _hasSearched = true;
+        _isSearching = false;
+        _isLoading = false;
+      });
+      
+      if (query.trim().isNotEmpty) {
+        _saveSearchHistory(query);
       }
     } catch (e) {
       print('검색 실패: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() {
+        _isSearching = false;
+        _isLoading = false;
+      });
     }
   }
 
-  // --- UI Building ---
+  Future<void> _deleteSearchHistory(String query) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> history = prefs.getStringList('search_history') ?? [];
+      history.remove(query);
+      await prefs.setStringList('search_history', history);
+      setState(() {
+        _searchHistory = history;
+      });
+    } catch (e) {
+      print('검색 기록 삭제 실패: $e');
+    }
+  }
+
+  Future<void> _clearAllSearchHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('search_history');
+      setState(() {
+        _searchHistory = [];
+      });
+    } catch (e) {
+      print('검색 기록 전체 삭제 실패: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,116 +274,296 @@ class _SearchPageState extends State<SearchPage> {
       body: Column(
         children: [
           // 검색창
-          Padding(
+          Container(
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _searchController,
               focusNode: _searchFocusNode,
               decoration: InputDecoration(
-                hintText: '정책명, 키워드로 검색',
+                hintText: '정책명, 카테고리로 검색',
                 prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _hasSearched = false;
+                            _searchResults = [];
+                          });
+                        },
+                        icon: const Icon(Icons.clear),
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 filled: true,
                 fillColor: Colors.grey[50],
               ),
-              onSubmitted: _performSearch, // 엔터 키를 누르면 검색 실행
+              onChanged: (value) {
+                setState(() {});
+                if (value.isEmpty) {
+                  _loadRecommendedPolicies();
+                } else {
+                  _performSearch(value);
+                }
+              },
+              onSubmitted: (_) {},
             ),
           ),
+
+          // 검색 중 표시
+          if (_isSearching)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 12),
+                  Text('검색 중...'),
+                ],
+              ),
+            ),
+
           // 검색 결과 또는 검색 기록
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _hasSearched
-                    ? _buildSearchResults()
-                    : _buildSearchHistory(),
+            child: _hasSearched && !_isSearching
+                ? _buildSearchResults()
+                : _buildSearchHistory(),
           ),
         ],
       ),
     );
   }
 
-  /// 최근 검색어 목록을 보여주는 위젯
+  // 검색 기록 위젯
   Widget _buildSearchHistory() {
-    // ... (검색 기록 UI는 기존 코드와 거의 동일)
-    return ListView.builder(
-      itemCount: _searchHistory.length,
-      itemBuilder: (context, index) {
-        final query = _searchHistory[index];
-        return ListTile(
-          leading: const Icon(Icons.history),
-          title: Text(query),
-          onTap: () {
-            _searchController.text = query;
-            _performSearch(query);
-          },
-        );
-      },
-    );
-  }
-
-  /// 검색 결과를 보여주는 위젯
-  Widget _buildSearchResults() {
-    if (_searchResults.isEmpty) {
-      return const Center(child: Text('검색 결과가 없습니다.'));
+    if (_searchHistory.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.history,
+              size: 64,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 16),
+            Text(
+              '검색 기록이 없습니다',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: _searchResults.length,
-      itemBuilder: (context, index) {
-        // ★ 이제 _searchResults의 각 항목은 Policy 객체입니다.
-        final policy = _searchResults[index];
-        return _buildPolicyCard(policy);
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            '최근 검색어',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _searchHistory.length,
+            itemBuilder: (context, index) {
+              final query = _searchHistory[index];
+              return ListTile(
+                leading: const Icon(Icons.history, color: Colors.grey),
+                title: Text(query),
+                trailing: IconButton(
+                  onPressed: () => _deleteSearchHistory(query),
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                ),
+                onTap: () {
+                  _searchController.text = query;
+                  _performSearch(query);
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  /// 정책 정보를 표시하는 카드 위젯
-  Widget _buildPolicyCard(Policy policy) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {
-          // ★ policy.toMap()을 사용하여 상세 페이지로 데이터를 전달합니다.
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PolicyDetailPage(policy: policy.toMap()),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                policy.title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  // 검색 결과 위젯
+  Widget _buildSearchResults() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              '검색 중...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
               ),
-              const SizedBox(height: 8),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 64,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 16),
+            Text(
+              '검색 결과가 없습니다',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              '다른 키워드로 검색해보세요',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            _searchController.text.isEmpty 
+                ? '추천 정책 (${_searchResults.length}개)'
+                : '검색 결과 (${_searchResults.length}개)',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _searchResults.length,
+            itemBuilder: (context, index) {
+              final policy = _searchResults[index];
+              return _buildPolicyCard(policy);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 정책 카드 위젯 - 북마크 기능 및 신청하기 버튼 제거
+  Widget _buildPolicyCard(Policy policy) {
+    final deadlineLabel = _deadlineLabelOf(policy);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    policy.title,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _toggleBookmark(policy),
+                  child: Icon(
+                    _bookmarkedPolicies.contains(policy.id) 
+                        ? Icons.favorite 
+                        : Icons.favorite_border,
+                    color: _bookmarkedPolicies.contains(policy.id) 
+                        ? Colors.red 
+                        : Colors.grey,
+                    size: 24,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (policy.description.isNotEmpty)
               Text(
                 policy.description,
                 style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.calendar_today, size: 14, color: Colors.grey[500]),
-                  const SizedBox(width: 4),
-                  Text(
-                    policy.deadline,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                  ),
-                ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(deadlineLabel, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // 신청하기 버튼 제거하고 상세보기 버튼만 유지
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PolicyDetailPage(policy: policy.toMap()),
+                    ),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.blue[300]!),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('상세보기', style: TextStyle(color: Colors.blue)),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
