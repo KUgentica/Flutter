@@ -13,8 +13,8 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // 로그인 상태 확인용
 import 'services/auth_service.dart'; // MongoDB 저장을 위해 추가
 
-// const String _kChatStoreKey = 'chat_messages_v1'; // 로컬 저장 키 제거
-
+// ✅ 현위치용
+import 'package:geolocator/geolocator.dart';
 
 class ChatBotScreen extends StatefulWidget {
   const ChatBotScreen({super.key});
@@ -193,7 +193,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     _addMessage("ai", message.toString());
   }
 
-  /// 📤 메시지 전송
+  /// 📤 메시지 전송 (일반)
   Future<void> _sendToAgentica(String message) async {
     if (!_isConnected || _channel == null) {
       _addMessage("ai", "서버에 연결되지 않았습니다.");
@@ -211,6 +211,49 @@ class _ChatBotScreenState extends State<ChatBotScreen>
       _channel!.sink.add(jsonMsg);
     } catch (e) {
       _addMessage("ai", "메시지 전송에 실패했습니다.");
+    }
+  }
+
+  /// 📤 메시지 전송 (근처 센터: 좌표 포함)
+  Future<void> _sendNearbyCenters() async {
+    if (!_isConnected || _channel == null) {
+      _addMessage("ai", "서버에 연결되지 않았습니다.");
+      return;
+    }
+    try {
+      // 권한 체크/요청
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        perm = await Geolocator.requestPermission();
+        if (perm == LocationPermission.denied ||
+            perm == LocationPermission.deniedForever) {
+          _addMessage("ai", "위치 권한이 필요합니다.");
+          return;
+        }
+      }
+
+      // 현재 좌표
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // 대화 기록에 노출
+      _addMessage("user", "내 근처 센터");
+
+      // 좌표 포함 전송
+      final rpcMsg = {
+        "target": "chat",
+        "method": "send",
+        "parameters": {
+          "message": "내 근처 센터",
+          "lat": pos.latitude,
+          "lng": pos.longitude,
+        },
+      };
+      _channel!.sink.add(jsonEncode(rpcMsg));
+    } catch (e) {
+      _addMessage("ai", "위치 정보를 가져오지 못했습니다.");
     }
   }
 
@@ -243,7 +286,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     }
   }
 
-
   Future<void> _saveChatToMongoDB(String role, String text) async {
     try {
       await AuthService.addMessage(role, text);
@@ -252,7 +294,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
       debugPrint('[Chatbot] save to MongoDB error: $e');
     }
   }
-
 
   /// 💬 메시지 리스트에 추가
   void _addMessage(String role, String text) {
@@ -264,7 +305,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
       _messageAnimations.add(false);
     });
 
-    _saveChatToMongoDB(role, text);  // ✅ 저장
+    _saveChatToMongoDB(role, text); // ✅ 저장
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -276,7 +317,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
       _scrollToBottom();
     });
   }
-
 
   /// ⬇️ 스크롤 맨 아래로 이동
   void _scrollToBottom() {
@@ -297,17 +337,34 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     if (text.isEmpty) return;
     _searchController.clear();
     FocusScope.of(context).unfocus();
+
+    // ✅ "근처/내 위치/가까운/주변" 포함 시 현위치로 전송
+    final t = text.replaceAll(' ', '');
+    final isNearby = RegExp(r'(근처|내위치|가까운|주변)').hasMatch(t);
+    if (isNearby) {
+      _sendNearbyCenters();
+      return;
+    }
+
     _addMessage("user", text);
     _sendToAgentica(text);
   }
 
   /// 추천 질문 클릭
   void _onSuggestionPressed(String suggestion) {
+    // ✅ 추천칩도 동일 트리거 동작
+    final t = suggestion.replaceAll(' ', '');
+    final isNearby = RegExp(r'(근처|내위치|가까운|주변)').hasMatch(t);
+    if (isNearby) {
+      _sendNearbyCenters();
+      return;
+    }
+
     _addMessage("user", suggestion);
     _sendToAgentica(suggestion);
   }
 
-  // ⬇️ AI 메시지(링크/마크다운 or 정책카드) 렌더러
+  // ⬇️ AI 메시지(링크/마크다운 or 정책/센터 카드) 렌더러
   Widget _buildAssistantRich(String text, {TextStyle? baseStyle}) {
     // 마크다운 링크가 있으면 Markdown으로 처리
     final hasMarkdownLink = RegExp(
@@ -339,7 +396,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         },
         style:
-        baseStyle ?? const TextStyle(fontSize: 14, color: Colors.black87),
+            baseStyle ?? const TextStyle(fontSize: 14, color: Colors.black87),
         linkStyle: const TextStyle(decoration: TextDecoration.underline),
       );
     }
@@ -351,19 +408,34 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     );
   }
 
-  // ⬇️ 정책카드 JSON이면 카드로, 아니면 기존 텍스트로
+  // ⬇️ 정책/센터 카드 JSON이면 카드로, 아니면 기존 텍스트로
   Widget _buildAiMessageOrCards(String text) {
     try {
       final obj = jsonDecode(text);
+
+      // 정책 카드
       if (obj is Map && obj["type"] == "policy_cards" && obj["items"] is List) {
         final items = (obj["items"] as List)
             .map(
               (e) =>
-              PolicyCardModel.fromJson(Map<String, dynamic>.from(e as Map)),
-        )
+                  PolicyCardModel.fromJson(Map<String, dynamic>.from(e as Map)),
+            )
             .toList();
         if (items.isNotEmpty) {
           return PolicyCardsMessage(items: items, previewCount: 3);
+        }
+      }
+
+      // ✅ 센터 카드
+      if (obj is Map && obj["type"] == "center_cards" && obj["items"] is List) {
+        final items = (obj["items"] as List)
+            .map(
+              (e) =>
+                  CenterCardModel.fromJson(Map<String, dynamic>.from(e as Map)),
+            )
+            .toList();
+        if (items.isNotEmpty) {
+          return CenterCardsMessage(items: items, previewCount: 5);
         }
       }
     } catch (_) {
@@ -410,12 +482,11 @@ class _ChatBotScreenState extends State<ChatBotScreen>
                 ),
               ],
             ),
-            // ⬇️ 여기 변경: AI 메시지에 카드 렌더 적용
             child: isUser
                 ? Text(
-              msg["text"] ?? "",
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-            )
+                    msg["text"] ?? "",
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  )
                 : _buildAiMessageOrCards(msg["text"] ?? ""),
           ),
         ),
@@ -483,12 +554,12 @@ class _ChatBotScreenState extends State<ChatBotScreen>
                               boxShadow: [
                                 BoxShadow(
                                   color:
-                                  (_isConnected
-                                      ? Colors.green
-                                      : _isConnecting
-                                      ? Colors.orange
-                                      : Colors.red)
-                                      .withValues(alpha: 0.3),
+                                      (_isConnected
+                                              ? Colors.green
+                                              : _isConnecting
+                                              ? Colors.orange
+                                              : Colors.red)
+                                          .withValues(alpha: 0.3),
                                   blurRadius: 4,
                                   spreadRadius: 1,
                                 ),
@@ -620,6 +691,8 @@ class _ChatBotScreenState extends State<ChatBotScreen>
               _buildAnimatedSuggestionChip("문화", 7),
               _buildAnimatedSuggestionChip("건강", 8),
               _buildAnimatedSuggestionChip("환경", 9),
+              // 원하면 여기 칩에 "근처 센터" 추가 후 onTap에서 _sendNearbyCenters() 호출 가능
+              // _buildAnimatedSuggestionChip("근처 센터", 0),
             ],
           ),
         ],
@@ -631,9 +704,8 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     return AnimatedBuilder(
       animation: _keywordAnimations[index],
       builder: (context, child) {
-        // 사인 함수를 사용해서 위아래로 움직이는 애니메이션
         final value = _keywordAnimations[index].value;
-        final offset = sin(value * 2 * pi) * 4.0; // 4픽셀 위아래 움직임
+        final offset = sin(value * 2 * pi) * 4.0; // 4픽셀 위아래
 
         return Transform.translate(
           offset: Offset(0, offset),
@@ -700,7 +772,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
                   decoration: InputDecoration(
                     hintText: "무엇이 궁금하신가요?",
                     prefixIcon: IconButton(
-                      icon: Icon(Icons.delete),
+                      icon: const Icon(Icons.delete),
                       onPressed: () async {
                         final result = await showDialog<bool>(
                           context: context,
@@ -709,11 +781,13 @@ class _ChatBotScreenState extends State<ChatBotScreen>
                             content: const Text('대화내용을 삭제하시겠습니까?'),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.of(context).pop(false),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
                                 child: const Text('취소'),
                               ),
                               TextButton(
-                                onPressed: () => Navigator.of(context).pop(true),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
                                 child: const Text('삭제'),
                               ),
                             ],
@@ -731,7 +805,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
                       },
                     ),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
+                    contentPadding: const EdgeInsets.symmetric(
                       vertical: 12,
                       horizontal: 8,
                     ),
@@ -920,9 +994,9 @@ class PolicyCardsMessage extends StatelessWidget {
                     onPressed: p.link.isEmpty
                         ? null
                         : () => launchUrlString(
-                      p.link,
-                      mode: LaunchMode.externalApplication,
-                    ),
+                            p.link,
+                            mode: LaunchMode.externalApplication,
+                          ),
                     icon: const Icon(Icons.open_in_new),
                     label: const Text('자세히 보기 / 신청하기'),
                   ),
@@ -1085,4 +1159,192 @@ class _SectionDivider extends StatelessWidget {
       color: Colors.black.withOpacity(0.06),
     ),
   );
+}
+
+// ================== 청년센터 카드 UI ==================
+
+class CenterCardModel {
+  final String id;
+  final String title;
+  final String address;
+  final String? detailAddress;
+  final String? tel;
+  final String? web;
+  final String? googleMaps;
+  final String? naverMap;
+  final int? distanceMeters;
+
+  CenterCardModel({
+    required this.id,
+    required this.title,
+    required this.address,
+    this.detailAddress,
+    this.tel,
+    this.web,
+    this.googleMaps,
+    this.naverMap,
+    this.distanceMeters,
+  });
+
+  factory CenterCardModel.fromJson(Map<String, dynamic> j) {
+    final links = (j['links'] ?? {}) as Map;
+    return CenterCardModel(
+      id: (j['id'] ?? '').toString(),
+      title: (j['title'] ?? '').toString(),
+      address: (j['address'] ?? '').toString(),
+      detailAddress: (j['detailAddress'] ?? '')?.toString(),
+      tel: (j['tel'] ?? '')?.toString(),
+      web: (links['web'] ?? '')?.toString(),
+      googleMaps: (links['googleMaps'] ?? '')?.toString(),
+      naverMap: (links['naverMap'] ?? '')?.toString(),
+      distanceMeters: (j['distanceMeters'] is num)
+          ? (j['distanceMeters'] as num).toInt()
+          : null,
+    );
+  }
+}
+
+class CenterCardsMessage extends StatelessWidget {
+  final List<CenterCardModel> items;
+  final int previewCount;
+  const CenterCardsMessage({
+    super.key,
+    required this.items,
+    this.previewCount = 3,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final display = items.take(previewCount).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final c in display) ...[
+          _CenterPreviewCard(data: c),
+          const SizedBox(height: 8),
+        ],
+        if (items.length > previewCount)
+          Text(
+            '외 ${items.length - previewCount}곳 더 있음 · 지역명/“근처 센터”로 더 찾아드려요.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+          ),
+      ],
+    );
+  }
+}
+
+class _CenterPreviewCard extends StatelessWidget {
+  final CenterCardModel data;
+  const _CenterPreviewCard({required this.data});
+
+  String _fmtDist(int m) {
+    if (m >= 1000) {
+      final km = m / 1000.0;
+      final txt = (km - km.floorToDouble()).abs() < 0.05
+          ? km.toStringAsFixed(0)
+          : km.toStringAsFixed(1);
+      return '약 ${txt}km';
+    }
+    return '약 ${m}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = <String>[
+      if (data.address.isNotEmpty) data.address,
+      if ((data.detailAddress ?? '').isNotEmpty) data.detailAddress!,
+      if (data.distanceMeters != null) _fmtDist(data.distanceMeters!),
+    ];
+    final subtitle = parts.join(' · ');
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2EEFF)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 이름
+            Text(
+              data.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            ),
+            const SizedBox(height: 6),
+            // 주소/거리
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.place, size: 14, color: Colors.black54),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ),
+              ],
+            ),
+            if ((data.tel ?? '').isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.phone, size: 14, color: Colors.black54),
+                  const SizedBox(width: 4),
+                  Text(
+                    data.tel!,
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 8),
+            // 링크 버튼들
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if ((data.web ?? '').isNotEmpty)
+                  _LinkButton(label: '웹사이트', url: data.web!),
+                if ((data.googleMaps ?? '').isNotEmpty)
+                  _LinkButton(label: '구글지도', url: data.googleMaps!),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LinkButton extends StatelessWidget {
+  final String label;
+  final String url;
+  const _LinkButton({required this.label, required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.tonal(
+      onPressed: () =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      child: Text(label),
+    );
+  }
 }

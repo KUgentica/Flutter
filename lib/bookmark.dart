@@ -3,6 +3,7 @@ import '../models/bookmarkItem.dart';
 import '../models/policy.dart';
 import '../models/center.dart' as center_model;
 import '../services/bookmark_service.dart';
+import '../common_bottom_navigation.dart';
 import 'detail.dart';
 
 class BookmarkPage extends StatefulWidget {
@@ -17,6 +18,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
   late Future<List<BookmarkItem>> _bookmarksFuture;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  int _selectedIndex = 1; // 즐겨찾기 탭 인덱스
 
   @override
   void initState() {
@@ -111,21 +113,27 @@ class _BookmarkPageState extends State<BookmarkPage> {
   }
 
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('즐겨찾기'),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A1B1C),
-        elevation: 0,
-      ),
       body: SafeArea(
-        top: false,
         child: Column(
           children: [
+            // 상단 제목 영역
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: const Text(
+                '즐겨찾기',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1B1C),
+                ),
+              ),
+            ),
+            // 검색창
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: TextField(
@@ -155,6 +163,15 @@ class _BookmarkPageState extends State<BookmarkPage> {
             ),
           ],
         ),
+      ),
+      bottomNavigationBar: CommonBottomNavigation(
+        selectedIndex: _selectedIndex,
+        onItemTapped: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          NavigationHelper.navigateToScreen(context, index);
+        },
       ),
     );
   }
