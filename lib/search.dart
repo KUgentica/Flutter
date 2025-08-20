@@ -93,11 +93,18 @@ class _SearchPageState extends State<SearchPage> {
       success = await BookmarkService.removeBookmark(itemId);
     } else {
       // 북마크 저장
+      print('🔖 북마크 저장 시작:');
+      print('   - 정책 ID: $itemId');
+      print('   - 정책 제목: ${policy.title}');
+      print('   - 마감일: ${policy.deadline}');
+      print('   - 마감일 길이: ${policy.deadline.length}');
+      
       success = await BookmarkService.saveBookmark(
         itemId: itemId,
         itemType: 'POLICY',
         title: policy.title,
         description: policy.description,
+        deadline: policy.deadline, // 마감일 정보 추가
       );
     }
 

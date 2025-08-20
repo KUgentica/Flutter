@@ -114,6 +114,8 @@ class _PolicyListPageState extends State<PolicyListPage> {
       title = item.title;
       description = item.description;
       print('   - 아이템 타입: POLICY');
+      print('   - 마감일: ${item.deadline}');
+      print('   - 마감일 길이: ${item.deadline.length}');
     } else {
       print('🚨 에러: 알 수 없는 아이템 타입입니다.');
       // UI 롤백이 필요하다면 여기에 추가할 수 있습니다.
@@ -121,11 +123,15 @@ class _PolicyListPageState extends State<PolicyListPage> {
     }
     
     print('   - 전송될 데이터: id=$itemId, type=$itemType, title=$title, desc=$description');
+    final deadline = item is Policy ? item.deadline : null;
+    print('   - 마감일 정보: $deadline');
+    
     success = await BookmarkService.saveBookmark(
       itemId: itemId,
       itemType: itemType,
       title: title,
       description: description,
+      deadline: deadline, // Policy인 경우 마감일 정보 추가
     );
   }
   

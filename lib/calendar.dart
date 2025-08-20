@@ -280,7 +280,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Color getEventTypeColor(String eventType) {
-    // ... (이전과 동일한 색상 매핑 함수)
-    return Colors.blue;
+    // 정책 마감일은 빨간색으로 표시
+    if (eventType == "정책 마감일") {
+      return Colors.red;
+    }
+    
+    // 다른 이벤트 타입들에 대한 색상 매핑
+    switch (eventType.toLowerCase()) {
+      case '미팅':
+        return Colors.blue;
+      case '약속':
+        return Colors.green;
+      case '생일':
+        return Colors.pink;
+      case '기념일':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
   }
 }
