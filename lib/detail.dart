@@ -51,9 +51,10 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     if (start == null || end == null) {
       return (label: range, bg: Colors.grey[200]!, fg: Colors.grey[700]!);
     }
+    final endInclusive = DateTime(end.year, end.month, end.day, 23, 59, 59);
     if (now.isBefore(start)) {
       return (label: '신청예정 (${parts[0]} ~ ${parts[1]})', bg: Colors.blue[100]!, fg: Colors.blue[700]!);
-    } else if (now.isAfter(end.add(const Duration(days: 1)).subtract(const Duration(seconds: 1)))) {
+    } else if (now.isAfter(endInclusive)) {
       return (label: '마감 (${parts[0]} ~ ${parts[1]})', bg: Colors.grey[200]!, fg: Colors.grey[700]!);
     } else {
       return (label: '신청가능 (${parts[0]} ~ ${parts[1]})', bg: Colors.green[100]!, fg: Colors.green[700]!);
@@ -67,7 +68,8 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
       return (label: deadline.isEmpty ? '신청기간 정보 없음' : deadline, bg: Colors.grey[200]!, fg: Colors.grey[700]!);
     }
     final now = DateTime.now();
-    if (now.isAfter(d.add(const Duration(days: 1)).subtract(const Duration(seconds: 1)))) {
+    final endInclusive = DateTime(d.year, d.month, d.day, 23, 59, 59);
+    if (now.isAfter(endInclusive)) {
       return (label: '마감일: $deadline (마감)', bg: Colors.grey[200]!, fg: Colors.grey[700]!);
     } else {
       return (label: '마감일: $deadline (신청가능)', bg: Colors.green[100]!, fg: Colors.green[700]!);
@@ -85,11 +87,11 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     final title       = _s(p['title'] ?? raw['plcyTitle'], def: '(제목 없음)');
     final description = _s(p['description'] ?? raw['plcyExplnCn'], def: '설명 없음');
     final location    = _s(p['location'] ?? raw['plcyLctr']);
-    final keywords    = _s(raw['plcyKywdNm']);
-    final zipCd       = _s(raw['zipCd']);
+    final keywords    = _s(p['plcyKywdNm'] ?? raw['plcyKywdNm']);
+    final zipCd       = _s(p['zipCd'] ?? raw['zipCd']);
 
     // 기간/상태
-    final aplyYmd     = _s(raw['aplyYmd']);               // "YYYYMMDD ~ YYYYMMDD" 형식일 수 있음
+    final aplyYmd     = _s(p['aplyYmd'] ?? raw['aplyYmd']);               // "YYYYMMDD ~ YYYYMMDD" 형식일 수 있음
     final deadline    = _s(p['deadline'] ?? raw['plcyDd']);
     final statusText  = _s(p['status'] ?? raw['plcyStatus']);
 
@@ -117,27 +119,20 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     })();
 
     // 신청 방법
-    final applyMethod = _s(raw['plcyAplyMthdCn']).replaceAll(r'\r\n', '\n').replaceAll(r'\n', '\n');
+    final applyMethod = _s(p['applyMethod'] ?? raw['plcyAplyMthdCn']).replaceAll(r'\r\n', '\n').replaceAll(r'\n', '\n');
 
-    // 상태 배지 계산 우선순위: 명시적 status → 기간 범위 → 단일 마감일
+    // 상태 배지 계산: 기간(aplyYmd) > 단일 마감일(plcyDd)
     ({String label, Color bg, Color fg})? badge;
-    if (statusText.isNotEmpty) {
-      final isOpen = statusText.contains('신청가능');
-      badge = (
-        label: statusText,
-        bg: isOpen ? Colors.green[100]! : Colors.orange[100]!,
-        fg: isOpen ? Colors.green[700]! : Colors.orange[700]!
-      );
-    } else if (aplyYmd.contains('~')) {
+    if (aplyYmd.contains('~')) {
       badge = _statusByRange(aplyYmd);
     } else if (deadline.isNotEmpty) {
       badge = _statusByDeadline(deadline);
     }
 
     // 신청 관련 URL
-    final aplyUrl = _s(raw['aplyUrlAddr']);
-    final refUrl1 = _s(raw['refUrlAddr1']);
-    final refUrl2 = _s(raw['refUrlAddr2']);
+    final aplyUrl = _s(p['applyUrl'] ?? raw['aplyUrlAddr']);
+    final refUrl1 = _s(p['refUrl1'] ?? raw['refUrlAddr1']);
+    final refUrl2 = _s(p['refUrl2'] ?? raw['refUrlAddr2']);
     final List<String> urls = [aplyUrl, refUrl1, refUrl2].where((u) => u.isNotEmpty).toList();
     final String? mainUrl = urls.isNotEmpty ? urls.first : null;
     // 지역(우편번호) 그대로 노출
@@ -216,106 +211,66 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
 
                   const Text('신청 방법', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[200]!),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          applyMethod.isEmpty ? '상세 공고문을 확인하세요.' : applyMethod,
-                          style: const TextStyle(fontSize: 14, height: 1.6),
-                        ),
-                        if (aplyUrl.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: GestureDetector(
-                              onTap: () async {
-                                if (await canLaunchUrl(Uri.parse(aplyUrl))) {
-                                  await launchUrl(Uri.parse(aplyUrl), mode: LaunchMode.inAppWebView);
-                                }
-                              },
-                              child: Text(
-                                aplyUrl,
-                                style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13),
-                              ),
-                            ),
-                          ),
-                        if (refUrl1.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: GestureDetector(
-                              onTap: () async {
-                                if (await canLaunchUrl(Uri.parse(refUrl1))) {
-                                  await launchUrl(Uri.parse(refUrl1), mode: LaunchMode.inAppWebView);
-                                }
-                              },
-                              child: Text(
-                                refUrl1,
-                                style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13),
-                              ),
-                            ),
-                          ),
-                        if (refUrl2.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: GestureDetector(
-                              onTap: () async {
-                                if (await canLaunchUrl(Uri.parse(refUrl2))) {
-                                  await launchUrl(Uri.parse(refUrl2), mode: LaunchMode.inAppWebView);
-                                }
-                              },
-                              child: Text(
-                                refUrl2,
-                                style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                  Builder(builder: (context) {
+                    final bool hasMethod = applyMethod.trim().isNotEmpty && applyMethod.trim() != '-';
+                    final bool hasUrls = urls.isNotEmpty;
 
-                  const SizedBox(height: 32),
+                    Widget linkTile(String label, String url) => Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link, size: 16, color: Colors.blue),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: GestureDetector(
+                              onTap: () async {
+                                if (await canLaunchUrl(Uri.parse(url))) {
+                                  await launchUrl(Uri.parse(url), mode: LaunchMode.inAppWebView);
+                                }
+                              },
+                              child: Text(
+                                '$label: $url',
+                                style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
 
-                  // 하단 액션
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: mainUrl != null
-                          ? () async {
-                              if (await canLaunchUrl(Uri.parse(mainUrl))) {
-                                await launchUrl(
-                                  Uri.parse(mainUrl),
-                                  mode: LaunchMode.inAppWebView, // 외부 브라우저 대신 내장 웹뷰로 변경
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('신청 사이트로 이동할 수 없습니다.'), backgroundColor: Colors.red),
-                                );
-                              }
-                            }
-                          : () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('신청 절차는 공고문을 확인하세요.'), backgroundColor: Colors.blue),
-                              );
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    List<Widget> children = [];
+                    if (hasMethod) {
+                      children.add(Text(applyMethod, style: const TextStyle(fontSize: 14, height: 1.6)));
+                      if (hasUrls) {
+                        children.add(const SizedBox(height: 12));
+                        children.add(const Text('관련 링크', style: TextStyle(fontWeight: FontWeight.w600)));
+                      }
+                    } else if (!hasMethod && hasUrls) {
+                      // 방법 내용이 없으면 링크만 명시적으로 노출
+                      children.add(const Text('신청/안내 링크를 통해 확인하세요.', style: TextStyle(fontSize: 14)));
+                    } else {
+                      children.add(const Text('신청 방법 정보 없음', style: TextStyle(fontSize: 14)));
+                    }
+
+                    if (hasUrls) {
+                      if (aplyUrl.isNotEmpty) children.add(linkTile('신청 URL', aplyUrl));
+                      if (refUrl1.isNotEmpty) children.add(linkTile('안내 URL1', refUrl1));
+                      if (refUrl2.isNotEmpty) children.add(linkTile('안내 URL2', refUrl2));
+                    }
+
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[200]!),
                       ),
-                      child: Text(
-                        mainUrl != null ? '신청 사이트 이동' : '신청 안내',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+                    );
+                  }),
+
+                  const SizedBox(height: 8),
                 ],
               ),
             ),

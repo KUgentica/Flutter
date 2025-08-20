@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'list.dart';
 import 'detail.dart';
+import 'services/policy_service.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({Key? key}) : super(key: key);
@@ -18,137 +19,55 @@ class _SearchPageState extends State<SearchPage> {
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
   bool _hasSearched = false;
+  bool _isLoading = false;
 
-  // 카테고리별 샘플 정책 데이터 (실제로는 API에서 가져올 것)
-  final Map<String, List<Map<String, dynamic>>> _allPolicies = {
-    '창업': [
-      {
-        'title': '청년창업사관학교',
-        'description': '청년들의 창업 아이디어를 실현할 수 있도록 지원하는 프로그램',
-        'category': '창업 지원',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '최대 5천만원',
-        'status': '신청가능',
-      },
-      {
-        'title': '창업도약패키지',
-        'description': '창업 초기 단계의 청년들을 위한 종합 지원 프로그램',
-        'category': '창업 지원',
-        'deadline': '2024.11.30',
-        'location': '서울, 부산, 대구',
-        'amount': '최대 3천만원',
-        'status': '신청가능',
-      },
-    ],
-    '주거': [
-      {
-        'title': '청년주택공급',
-        'description': '청년들을 위한 전용 임대주택 공급',
-        'category': '주거 지원',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '시세 대비 70%',
-        'status': '신청가능',
-      },
-      {
-        'title': '전세자금대출',
-        'description': '청년 전세자금 대출 지원',
-        'category': '주거 지원',
-        'deadline': '상시',
-        'location': '전국',
-        'amount': '최대 1억원',
-        'status': '신청가능',
-      },
-    ],
-    '교육': [
-      {
-        'title': '국비지원 교육과정',
-        'description': '취업에 도움이 되는 다양한 교육과정 지원',
-        'category': '교육·훈련비 지원',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '교육비 100% 지원',
-        'status': '신청가능',
-      },
-      {
-        'title': '자격증 취득 지원',
-        'description': '취업에 유리한 자격증 취득 비용 지원',
-        'category': '교육·훈련비 지원',
-        'deadline': '2024.11.30',
-        'location': '전국',
-        'amount': '최대 100만원',
-        'status': '신청가능',
-      },
-    ],
-    '금융': [
-      {
-        'title': '청년도약계좌',
-        'description': '청년들의 자산 형성을 위한 특별 계좌',
-        'category': '금융 지원',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '최대 5천만원',
-        'status': '신청가능',
-      },
-      {
-        'title': '청년대출',
-        'description': '청년들을 위한 저금리 대출',
-        'category': '금융 지원',
-        'deadline': '상시',
-        'location': '전국',
-        'amount': '최대 3천만원',
-        'status': '신청가능',
-      },
-    ],
-    '생활': [
-      {
-        'title': '청년수당',
-        'description': '청년들의 기본생활을 지원하는 수당',
-        'category': '생활·복지 지원',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '월 30만원',
-        'status': '신청가능',
-      },
-      {
-        'title': '문화바우처',
-        'description': '청년들의 문화생활을 지원하는 바우처',
-        'category': '생활·복지 지원',
-        'deadline': '2024.11.30',
-        'location': '전국',
-        'amount': '연 10만원',
-        'status': '신청가능',
-      },
-    ],
-    '취업': [
-      {
-        'title': '청년취업지원',
-        'description': '청년들의 취업을 위한 종합 지원 프로그램',
-        'category': '취업 지원',
-        'deadline': '2024.12.31',
-        'location': '전국',
-        'amount': '취업성공수당 지급',
-        'status': '신청가능',
-      },
-      {
-        'title': '인턴십 지원',
-        'description': '기업 인턴십 참여를 위한 지원',
-        'category': '취업 지원',
-        'deadline': '2024.11.30',
-        'location': '전국',
-        'amount': '월 100만원',
-        'status': '신청가능',
-      },
-    ],
-  };
+  // 날짜 파싱 유틸 (카테고리 리스트와 동일한 포맷 표시에 사용)
+  DateTime? _parseYMD(String v) {
+    final s = v.trim();
+    if (s.length != 8) return null;
+    final y = int.tryParse(s.substring(0, 4));
+    final m = int.tryParse(s.substring(4, 6));
+    final d = int.tryParse(s.substring(6, 8));
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
+  }
+
+  DateTime? _parseFlexibleDate(String v) {
+    final s = v.trim();
+    if (s.isEmpty) return null;
+    final normalized = s.replaceAll('.', '-').replaceAll(RegExp(r'[^0-9\-]'), '');
+    try {
+      final iso = normalized.length >= 10 ? normalized.substring(0, 10) : normalized;
+      return DateTime.parse(iso);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _deadlineLabelOf(Map<String, dynamic> p) {
+    final aplyYmd = (p['aplyYmd'] ?? '').toString().trim();
+    final deadline = (p['deadline'] ?? '').toString().trim();
+    if (aplyYmd.isNotEmpty) {
+      return '신청 기간: $aplyYmd';
+    }
+    if (deadline.isEmpty) return '상시 접수';
+    if (deadline == '상시') return '상시 접수';
+    // 단일 마감일 텍스트가 들어온 경우
+    final d = _parseFlexibleDate(deadline);
+    if (d == null) return '마감: $deadline';
+    final now = DateTime.now();
+    if (now.isAfter(d.add(const Duration(days: 1)).subtract(const Duration(seconds: 1)))) {
+      return '마감: $deadline';
+    }
+    return '마감일: $deadline';
+  }
 
   @override
   void initState() {
     super.initState();
     _loadSearchHistory();
     _searchFocusNode.requestFocus();
-    _showAutoSuggestions(); // 자동으로 추천 정책 표시
+    _loadRecommendedPolicies(); // 실제 추천 정책 로드
   }
 
   @override
@@ -197,50 +116,98 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  // 자동 추천 정책 표시
-  void _showAutoSuggestions() {
+  // 실제 추천 정책 로드
+  Future<void> _loadRecommendedPolicies() async {
     setState(() {
-      _searchResults = [];
-      _hasSearched = true;
-      
-      // 인기 정책들을 자동으로 표시
-      for (var category in _allPolicies.keys) {
-        _searchResults.addAll(_allPolicies[category]!);
-      }
-      
-      // 최대 6개까지만 표시
-      if (_searchResults.length > 6) {
-        _searchResults = _searchResults.take(6).toList();
-      }
+      _isLoading = true;
     });
+
+    try {
+      final policies = await PolicyService.getRecommendedPolicies();
+      // 사용자가 타이핑을 시작했으면 추천 적용하지 않음 (레이스 컨디션 방지)
+      if (_searchController.text.trim().isEmpty) {
+        setState(() {
+          _searchResults = policies;
+          _hasSearched = true;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('추천 정책 로드 실패: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
-  // 실시간 검색
-  void _performSearch(String query) {
+  // 실제 검색 수행
+  Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
-      _showAutoSuggestions();
+      _loadRecommendedPolicies();
       return;
     }
 
     setState(() {
-      _searchResults = [];
-      _hasSearched = true;
-      
-      // 모든 카테고리에서 검색
-      for (var category in _allPolicies.keys) {
-        for (var policy in _allPolicies[category]!) {
-          if (policy['title'].toString().toLowerCase().contains(query.toLowerCase()) ||
-              policy['description'].toString().toLowerCase().contains(query.toLowerCase()) ||
-              policy['category'].toString().toLowerCase().contains(query.toLowerCase())) {
-            _searchResults.add(policy);
-          }
-        }
-      }
+      _isSearching = true;
+      _isLoading = true;
     });
-    
-    // 검색 기록 저장 (빈 검색어가 아닐 때만)
-    if (query.trim().isNotEmpty) {
-      _saveSearchHistory(query);
+
+    try {
+      // 정책과 센터 모두 검색
+      final policyResults = await PolicyService.searchPolicies(query);
+      final centerResults = await PolicyService.searchCenters(query);
+      
+      // 현재 입력한 값과 결과가 맞는지 확인 (레이스 컨디션 방지)
+      if (query.trim() != _searchController.text.trim()) {
+        // 사용자가 이미 다른 검색을 입력함 → 이 결과는 버림
+        setState(() {
+          _isSearching = false;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 센터 결과를 정책 형식으로 변환
+      final convertedCenterResults = centerResults.map((center) {
+        return {
+          'id': center['id'],
+          'title': center['name'],
+          'description': '${center['address']} ${center['detailAddress']}',
+          'category': '청년센터',
+          'deadline': '상시',
+          'location': center['address'],
+          'amount': '무료',
+          'status': '이용가능',
+          'phone': center['phone'],
+          'url': center['url'],
+          'isCenter': true, // 센터임을 표시
+        };
+      }).toList();
+
+      // 결과 합치기
+      final allResults = [...policyResults, ...convertedCenterResults];
+      
+      setState(() {
+        _searchResults = allResults;
+        _hasSearched = true;
+        _isSearching = false;
+        _isLoading = false;
+      });
+      
+      // 검색 기록 저장 (빈 검색어가 아닐 때만)
+      if (query.trim().isNotEmpty) {
+        _saveSearchHistory(query);
+      }
+    } catch (e) {
+      print('검색 실패: $e');
+      setState(() {
+        _isSearching = false;
+        _isLoading = false;
+      });
     }
   }
 
@@ -271,8 +238,6 @@ class _SearchPageState extends State<SearchPage> {
       print('검색 기록 전체 삭제 실패: $e');
     }
   }
-
-
 
   // 검색 결과로 이동
   void _navigateToSearchResults(String query) {
@@ -332,14 +297,13 @@ class _SearchPageState extends State<SearchPage> {
               onChanged: (value) {
                 setState(() {});
                 if (value.isEmpty) {
-                  _showAutoSuggestions(); // 빈 검색어일 때 추천 정책 표시
+                  _loadRecommendedPolicies(); // 빈 검색어일 때 추천 정책 표시
                 } else {
                   _performSearch(value); // 실시간 검색
                 }
               },
-              onSubmitted: (value) {
-                _navigateToSearchResults(value);
-              },
+              // 엔터(Submit) 무시: 별도 동작 없음
+              onSubmitted: (_) {},
             ),
           ),
 
@@ -435,6 +399,25 @@ class _SearchPageState extends State<SearchPage> {
 
   // 검색 결과 위젯
   Widget _buildSearchResults() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              '검색 중...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_searchResults.isEmpty) {
       return const Center(
         child: Column(
@@ -486,67 +469,96 @@ class _SearchPageState extends State<SearchPage> {
             itemCount: _searchResults.length,
             itemBuilder: (context, index) {
               final policy = _searchResults[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ListTile(
-                  title: Text(
-                    policy['title'],
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Column(
+              final bool isCenter = policy['isCenter'] == true;
+
+              // 카테고리 화면과 동일한 카드 UI
+              final deadlineLabel = _deadlineLabelOf(policy);
+
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(policy['description']),
-                      const SizedBox(height: 4),
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[100],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                          Expanded(
                             child: Text(
-                              policy['category'],
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue[700],
+                              policy['title'] ?? '',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Icon(isCenter ? Icons.location_city : Icons.favorite_border, color: Colors.grey),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if ((policy['description'] ?? '').toString().isNotEmpty)
+                        Text((policy['description'] ?? '').toString(), style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(deadlineLabel, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                if (isCenter) return; // 센터는 상세 없음
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PolicyDetailPage(policy: policy),
+                                  ),
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.blue[300]!),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
+                              child: const Text('상세보기', style: TextStyle(color: Colors.blue)),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            policy['amount'],
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                if (isCenter) return; // 센터는 신청 버튼 없음
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PolicyDetailPage(policy: policy),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('신청하기', style: TextStyle(color: Colors.white)),
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PolicyDetailPage(
-                          policy: {
-                            'title': policy['title'],
-                            'description': policy['description'],
-                            'amount': policy['amount'],
-                            'location': policy['location'],
-                            'deadline': policy['deadline'],
-                            'status': policy['status'],
-                          },
-                        ),
-                      ),
-                    );
-                  },
                 ),
               );
             },
