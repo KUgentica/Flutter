@@ -192,7 +192,6 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
 
                   _buildInfoSection('기본 정보', [
                     {'label': '정책 ID',   'value': id.isEmpty ? '-' : id},
-                    {'label': '위치',       'value': location.isEmpty ? '-' : location},
                     {'label': '신청 기간',  'value': aplyYmd.isNotEmpty ? aplyYmd : (deadline.isNotEmpty ? deadline : '-')},
                     {'label': '키워드',     'value': keywords.isEmpty ? '-' : keywords},
                     {'label': '지역',       'value': zipRegion}, // 우편번호 그대로
