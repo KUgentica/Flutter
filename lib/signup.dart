@@ -339,11 +339,7 @@ class _SignupPageState extends State<SignupPage> {
                   ),
                   const SizedBox(height: 12),
                   
-                  // 비밀번호 안내 메시지
-                  const Text(
-                    '비밀번호는 반드시 8자리 이상이어야 합니다',
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
+
                   const SizedBox(height: 8),
                   
                   // 비밀번호 확인 입력

@@ -63,9 +63,62 @@ class _PolicyListPageState extends State<PolicyListPage> {
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
+    }
+
+  void _showBookmarkDialog(dynamic item) async {
+    if (item.id == null || item.id.isEmpty) {
+      print('🚨 에러: item ID가 비어있습니다.');
+      return;
+    }
+
+    final isCurrentlyBookmarked = _bookmarkedItemIds.contains(item.id);
+    
+    if (isCurrentlyBookmarked) {
+      // 이미 북마크된 경우 "이미 등록되어 있습니다" 다이얼로그 표시
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('알림'),
+            content: const Text('이미 즐겨찾기에 등록되어 있습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      // 북마크되지 않은 경우 확인 다이얼로그 표시
+      final shouldAdd = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('즐겨찾기 추가'),
+            content: const Text('즐겨찾기 및 캘린더에 추가하시겠습니까?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('아니오'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('예'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldAdd == true) {
+        _toggleFavorite(item);
+      }
+    }
   }
 
- void _toggleFavorite(dynamic item) async {
+  void _toggleFavorite(dynamic item) async {
   // --- 🐞 디버깅 시작 ---
   print('--- ⭐️ 즐겨찾기 토글 시작 ⭐️ ---');
   if (item.id == null || item.id.isEmpty) {
@@ -259,10 +312,10 @@ class _PolicyListPageState extends State<PolicyListPage> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => _toggleFavorite(item),
+                  onTap: () => _showBookmarkDialog(item),
                   child: Icon(
-                    isBookmarked ? Icons.favorite : Icons.favorite_border,
-                    color: isBookmarked ? Colors.red : Colors.grey,
+                    Icons.bookmark_border,
+                    color: Colors.grey,
                     size: 24,
                   ),
                 ),

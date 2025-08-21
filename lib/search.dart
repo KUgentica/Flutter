@@ -73,6 +73,55 @@ class _SearchPageState extends State<SearchPage> {
 
   // --- Data Handling ---
 
+  /// 북마크 확인 다이얼로그를 표시하는 함수
+  Future<void> _showBookmarkDialog(Policy policy) async {
+    final isCurrentlyBookmarked = _bookmarkedPolicies.contains(policy.id);
+    
+    if (isCurrentlyBookmarked) {
+      // 이미 북마크된 경우 "이미 등록되어 있습니다" 다이얼로그 표시
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('알림'),
+            content: const Text('이미 즐겨찾기에 등록되어 있습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      // 북마크되지 않은 경우 확인 다이얼로그 표시
+      final shouldAdd = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('즐겨찾기 추가'),
+            content: const Text('즐겨찾기 및 캘린더에 추가하시겠습니까?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('아니오'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('예'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldAdd == true) {
+        _toggleBookmark(policy);
+      }
+    }
+  }
+
   /// 북마크 상태를 토글하는 함수
   Future<void> _toggleBookmark(Policy policy) async {
     final itemId = policy.id;
@@ -416,14 +465,10 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => _toggleBookmark(policy),
+                  onTap: () => _showBookmarkDialog(policy),
                   child: Icon(
-                    _bookmarkedPolicies.contains(policy.id) 
-                        ? Icons.favorite 
-                        : Icons.favorite_border,
-                    color: _bookmarkedPolicies.contains(policy.id) 
-                        ? Colors.red 
-                        : Colors.grey,
+                    Icons.bookmark_border,
+                    color: Colors.grey,
                     size: 24,
                   ),
                 ),
