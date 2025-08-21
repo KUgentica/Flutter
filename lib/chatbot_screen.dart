@@ -689,8 +689,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
               _buildAnimatedSuggestionChip("지원", 5),
               _buildAnimatedSuggestionChip("금융", 6),
               _buildAnimatedSuggestionChip("문화", 7),
-              _buildAnimatedSuggestionChip("건강", 8),
-              _buildAnimatedSuggestionChip("환경", 9),
               // 원하면 여기 칩에 "근처 센터" 추가 후 onTap에서 _sendNearbyCenters() 호출 가능
               // _buildAnimatedSuggestionChip("근처 센터", 0),
             ],
