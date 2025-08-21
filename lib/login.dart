@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
-import 'services/notification_service.dart'; // 경로는 실제 파일 위치에 맞게 수정하세요.
+import 'services/notification_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -15,7 +15,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
   bool _isEmailFocused = false;
   bool _isPasswordFocused = false;
-  bool _isLoading = false;  // 로딩 상태 추가
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -41,7 +41,6 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {});
   }
 
-  // 로그인 처리 함수 추가
   Future<void> _handleLogin() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       _showErrorDialog('이메일과 비밀번호를 입력해주세요');
@@ -59,47 +58,31 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (result['success']) {
-        print('🎉 로그인 성공! 프로필 완성 여부 확인 중...');
         try {
-        print('FCM 토큰 초기화를 시작합니다...');
-        // initNotifications()는 인스턴스 메소드이므로 객체를 생성해서 호출합니다.
         final fcmToken = await FirebaseApi().initNotifications();
         if (fcmToken != null) {
-          print('서버로 FCM 토큰 전송 시도: $fcmToken');
-          // sendTokenToServer는 static 메소드이므로 클래스 이름으로 직접 호출합니다.
           await FirebaseApi.sendTokenToServer(fcmToken);
         } else {
-          print('FCM 토큰을 가져오지 못했습니다.');
         }
       } catch (e) {
-        print('FCM 토큰 처리 중 오류 발생: $e');
-        // 여기서 사용자에게 알림 기능이 동작하지 않을 수 있다고 알려줄 수 있습니다.
       }
-        // 사용자 이메일 가져오기
         final userEmail = result['email'];
         if (userEmail == null) {
-          print('❌ 사용자 이메일을 찾을 수 없습니다.');
           _showErrorDialog('로그인 정보를 가져올 수 없습니다.');
           return;
         }
         
-        // 프로필 완성 여부 확인
         final shouldShowOnboarding = await AuthService.shouldShowOnboarding(userEmail);
         
         if (shouldShowOnboarding) {
-          print('⚠️ Onboarding이 필요합니다. Onboarding 화면으로 이동합니다.');
-          // Onboarding이 필요한 경우 onboarding으로 이동
           Navigator.pushReplacementNamed(context, '/onboarding');
         } else {
-          print('✅ Onboarding이 필요하지 않습니다. 메인 화면으로 이동합니다.');
-          // Onboarding이 필요하지 않은 경우 메인 화면으로 이동
           Navigator.pushReplacementNamed(context, '/home');
         }
       } else {
         _showErrorDialog(result['message']);
       }
     } catch (e) {
-      print('💥 로그인 중 오류 발생: $e');
       _showErrorDialog('예상치 못한 오류가 발생했습니다: $e');
     } finally {
       setState(() {
@@ -108,7 +91,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // 성공 다이얼로그
   void _showSuccessDialog(String message) {
     showDialog(
       context: context,
@@ -127,7 +109,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // 에러 다이얼로그
   void _showErrorDialog(String message) {
     showDialog(
       context: context,

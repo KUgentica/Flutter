@@ -14,7 +14,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   int _selectedIndex = 3; // 캘린더 탭
   DateTime _currentDate = DateTime.now();
   
-  // ★ 서버에서 가져온 이벤트 목록을 관리합니다.
   List<CalendarEvent> _events = [];
   bool _isLoading = true;
 
@@ -24,7 +23,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _loadEventsForCurrentMonth();
   }
 
-  // ★ 현재 선택된 월의 이벤트를 서버에서 로드하는 함수
   Future<void> _loadEventsForCurrentMonth() async {
     setState(() => _isLoading = true);
     try {
@@ -40,11 +38,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      print('💥 캘린더 이벤트 로드 실패: $e');
     }
   }
 
-  // ★ 선택된 날짜의 이벤트 목록을 필터링하여 가져옵니다.
   List<CalendarEvent> get _selectedDateEvents {
     return _events.where((event) {
       return event.date.year == _currentDate.year &&
@@ -53,7 +49,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }).toList();
   }
 
-  // 월 이동 시 이벤트를 다시 로드합니다.
   void _changeMonth(int monthOffset) {
     setState(() {
       _currentDate = DateTime(
@@ -87,7 +82,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Text('캘린더', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               ),
-              // 캘린더
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.all(20),
@@ -104,7 +98,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
                 child: Column(
                   children: [
-                    // 월 네비게이션
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -123,7 +116,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    // 요일 헤더
                     Row(
                       children: ['일', '월', '화', '수', '목', '금', '토']
                           .map((day) => Expanded(
@@ -139,13 +131,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           .toList(),
                     ),
                     const SizedBox(height: 10),
-                    // 날짜 그리드
                     ..._buildCalendarDays(),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              // 이벤트 리스트
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -280,12 +270,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Color getEventTypeColor(String eventType) {
-    // 정책 마감일은 빨간색으로 표시
     if (eventType == "정책 마감일") {
       return Colors.red;
     }
-    
-    // 다른 이벤트 타입들에 대한 색상 매핑
     switch (eventType.toLowerCase()) {
       case '미팅':
         return Colors.blue;

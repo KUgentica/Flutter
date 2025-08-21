@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PolicyDetailPage extends StatefulWidget {
-  /// 정책 상세 데이터(정규화 맵 or 원본 plcy* 맵)
   final Map<String, dynamic> policy;
 
   const PolicyDetailPage({Key? key, required this.policy}) : super(key: key);
@@ -12,10 +11,8 @@ class PolicyDetailPage extends StatefulWidget {
 }
 
 class _PolicyDetailPageState extends State<PolicyDetailPage> {
-  // 문자열 안전 변환
   String _s(dynamic v, {String def = ''}) => (v == null ? def : v.toString());
 
-  // YYYYMMDD → DateTime
   DateTime? _parseYMD(String v) {
     final s = v.trim();
     if (s.length != 8) return null;
@@ -26,7 +23,6 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     return DateTime(y, m, d);
   }
 
-  // YYYY-MM-DD / YYYY.MM.DD / 기타 구분자 → DateTime
   DateTime? _parseFlexibleDate(String v) {
     final s = v.trim();
     if (s.isEmpty) return null;
@@ -39,7 +35,6 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     }
   }
 
-  // 신청기간(YYYYMMDD ~ YYYYMMDD) 상태
   ({String label, Color bg, Color fg}) _statusByRange(String range) {
     final parts = range.split('~').map((e) => e.trim()).toList();
     if (parts.length != 2) {
@@ -61,7 +56,6 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     }
   }
 
-  // 마감일 1개만 있을 때 상태
   ({String label, Color bg, Color fg}) _statusByDeadline(String deadline) {
     final d = _parseFlexibleDate(deadline);
     if (d == null) {
@@ -79,10 +73,8 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
   @override
   Widget build(BuildContext context) {
     final p = widget.policy;
-    // PolicyListPage에서 n으로 넘긴 정규화 원본이 있으면 참고
     final raw = p['_raw'] is Map ? (p['_raw'] as Map).cast<String, dynamic>() : p;
 
-    // 공통/정규화 우선, 없으면 원본 plcy* 폴백
     final id          = _s(p['id'].toString().isNotEmpty ? p['id'] : raw['plcyId']);
     final title       = _s(p['title'] ?? raw['plcyTitle'], def: '(제목 없음)');
     final description = _s(p['description'] ?? raw['plcyExplnCn'], def: '설명 없음');
@@ -90,11 +82,9 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
     final keywords    = _s(p['plcyKywdNm'] ?? raw['plcyKywdNm']);
     final zipCd       = _s(p['zipCd'] ?? raw['zipCd']);
 
-    // 기간/상태
-    final aplyYmd     = _s(p['aplyYmd'] ?? raw['aplyYmd']);               // "YYYYMMDD ~ YYYYMMDD" 형식일 수 있음
+    final aplyYmd     = _s(p['aplyYmd'] ?? raw['aplyYmd']);
     final deadline    = _s(p['deadline'] ?? raw['plcyDd']);
 
-    // 금액
     final plcyAmt     = _s(p['amount'] ?? raw['plcyAmt']);
     final earnMin     = _s(raw['earnMinAmt']);
     final earnMax     = _s(raw['earnMaxAmt']);
@@ -107,7 +97,6 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
       return '$earnMin ~ $earnMax';
     })();
 
-    // 연령
     final ageMin      = _s(raw['sprtTrgtMinAge']);
     final ageMax      = _s(raw['sprtTrgtMaxAge']);
     final ageText     = (() {
@@ -117,10 +106,8 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
       return '$ageMin세 ~ $ageMax세';
     })();
 
-    // 신청 방법
     final applyMethod = _s(p['applyMethod'] ?? raw['plcyAplyMthdCn']).replaceAll(r'\r\n', '\n').replaceAll(r'\n', '\n');
 
-    // 상태 배지 계산: 기간(aplyYmd) > 단일 마감일(plcyDd)
     ({String label, Color bg, Color fg})? badge;
     if (aplyYmd.contains('~')) {
       badge = _statusByRange(aplyYmd);
@@ -128,18 +115,15 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
       badge = _statusByDeadline(deadline);
     }
 
-    // 신청 관련 URL
     final aplyUrl = _s(p['applyUrl'] ?? raw['aplyUrlAddr']);
     final refUrl1 = _s(p['refUrl1'] ?? raw['refUrlAddr1']);
     final refUrl2 = _s(p['refUrl2'] ?? raw['refUrlAddr2']);
     final List<String> urls = [aplyUrl, refUrl1, refUrl2].where((u) => u.isNotEmpty).toList();
-    // 지역(우편번호) 그대로 노출
     final zipRegion = zipCd.isNotEmpty ? zipCd : '-';
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // 상단 앱바
           SliverAppBar(
             expandedHeight: 200,
             floating: false,
@@ -165,7 +149,6 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
                 ),
               ),
             ),
-            // 공유 아이콘 제거: 의미 없는 액션 삭제
           ),
 
           // 본문

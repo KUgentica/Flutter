@@ -14,11 +14,10 @@ class BookmarkPage extends StatefulWidget {
 }
 
 class _BookmarkPageState extends State<BookmarkPage> {
-  // 상태 관리 변수
   late Future<List<BookmarkItem>> _bookmarksFuture;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  int _selectedIndex = 1; // 즐겨찾기 탭 인덱스
+  int _selectedIndex = 1;
 
   @override
   void initState() {
@@ -26,14 +25,12 @@ class _BookmarkPageState extends State<BookmarkPage> {
     _loadBookmarks();
   }
 
-  /// 북마크 데이터를 불러오고 상태를 갱신하는 함수
   void _loadBookmarks() {
     setState(() {
       _bookmarksFuture = BookmarkService.getBookmarks();
     });
   }
 
-  /// 북마크 삭제 함수
   Future<void> _deleteBookmark(String itemId, String title) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -60,9 +57,9 @@ class _BookmarkPageState extends State<BookmarkPage> {
     bool success = await BookmarkService.removeBookmark(itemId);
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('\'$title\'이(가) 즐겨찾기에서 삭제되었습니다.')),
+        SnackBar(content: Text('\'$title\'이 즐겨찾기에서 삭제되었습니다.')),
       );
-      _loadBookmarks(); // 성공 시 목록 새로고침
+      _loadBookmarks();
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('삭제에 실패했습니다. 다시 시도해주세요.')),
@@ -70,9 +67,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
     }
   }
 
-  /// ⭐️ 핀 상태를 토글하는 함수 (수정됨)
   void _togglePin(BookmarkItem bookmark) async {
-    // API에 보낼 고유 ID 추출
     String itemId = '';
     if (bookmark.item is Policy) {
       itemId = (bookmark.item as Policy).id;
@@ -87,17 +82,11 @@ class _BookmarkPageState extends State<BookmarkPage> {
       return;
     }
 
-    // 1. 낙관적 업데이트: UI를 먼저 변경
     setState(() {
       bookmark.isPinned = !bookmark.isPinned;
     });
-
-    // 2. API 호출
     bool success = await BookmarkService.togglePin(itemId);
-
-    // 3. API 호출 결과 처리
     if (!success) {
-      // 실패 시 UI 롤백
       setState(() {
         bookmark.isPinned = !bookmark.isPinned;
       });
@@ -107,7 +96,6 @@ class _BookmarkPageState extends State<BookmarkPage> {
         );
       }
     } else {
-      // 성공 시 목록을 새로고침하여 정렬 순서 등을 완전히 동기화
       _loadBookmarks();
     }
   }
@@ -133,7 +121,6 @@ class _BookmarkPageState extends State<BookmarkPage> {
                 ),
               ),
             ),
-            // 검색창
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: TextField(
@@ -176,7 +163,6 @@ class _BookmarkPageState extends State<BookmarkPage> {
     );
   }
 
-  /// FutureBuilder를 사용하여 북마크 목록을 빌드하는 위젯
   Widget _buildBookmarkList() {
     return FutureBuilder<List<BookmarkItem>>(
       future: _bookmarksFuture,
@@ -248,7 +234,6 @@ class _BookmarkPageState extends State<BookmarkPage> {
     );
   }
 
-  /// 북마크 아이템 하나를 표시하는 카드 위젯
   Widget _buildBookmarkCard(BookmarkItem bookmark) {
     String title = '제목 없음';
     String description = '내용 없음';

@@ -37,23 +37,18 @@ class _ChatBotScreenState extends State<ChatBotScreen>
   int _reconnectAttempts = 0;
   static const int maxReconnectAttempts = 3;
 
-  // 완료 버튼 터치 효과
   bool _isPressed = false;
 
-  // 메시지 애니메이션을 위한 변수들
   final List<bool> _messageAnimations = [];
 
-  // 연결 상태 애니메이션
   late AnimationController _connectionController;
   late Animation<double> _connectionRotation;
 
   WebSocketChannel? _channel;
 
-  // 폭죽 아이콘 애니메이션
   late AnimationController _partyIconController;
   late Animation<double> _partyIconScale;
 
-  // 키워드 애니메이션 컨트롤러들
   late List<AnimationController> _keywordControllers;
   late List<Animation<double>> _keywordAnimations;
 
@@ -62,7 +57,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     super.initState();
     _initializePartyIconAnimation();
     _initializeConnectionAnimation();
-    _loadChatFromMongoDB(); // MongoDB에서 채팅 로드
+    _loadChatFromMongoDB();
     _connectWebSocket();
   }
 
@@ -76,10 +71,8 @@ class _ChatBotScreenState extends State<ChatBotScreen>
       CurvedAnimation(parent: _partyIconController, curve: Curves.elasticOut),
     );
 
-    // 애니메이션 자동 반복
     _partyIconController.repeat(reverse: true);
 
-    // 키워드 애니메이션 초기화
     _initializeKeywordAnimations();
   }
 
@@ -101,7 +94,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
       _keywordControllers.add(controller);
       _keywordAnimations.add(animation);
 
-      // 각 키워드마다 다른 타이밍으로 반복 애니메이션
       controller.repeat();
     }
   }
@@ -117,13 +109,12 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     );
   }
 
-  /// 🔌 WebSocket 연결
   void _connectWebSocket() {
     if (_isConnecting) return;
 
     setState(() => _isConnecting = true);
 
-    const String serverUrl = 'ws://10.0.2.2:3000';
+    const String serverUrl = 'ws://13.125.176.46:3000';
 
     try {
       _channel = IOWebSocketChannel.connect(serverUrl);
@@ -144,7 +135,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
           _isConnecting = false;
           _reconnectAttempts = 0;
         });
-        // 연결 성공 시 회전 애니메이션 시작
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _connectionController.repeat();
         });
@@ -154,11 +144,9 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     }
   }
 
-  /// 🚨 연결 끊김 시 처리
   void _onConnectionLost() {
     if (!mounted) return;
 
-    // 연결 끊김 시 회전 애니메이션 중지
     _connectionController.stop();
 
     setState(() {
@@ -178,7 +166,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     }
   }
 
-  /// 📩 서버 메시지 처리
   void _handleServerMessage(dynamic message) {
     try {
       final decoded = jsonDecode(message);
@@ -187,13 +174,11 @@ class _ChatBotScreenState extends State<ChatBotScreen>
         return;
       }
     } catch (_) {
-      // JSON이 아닐 경우 그냥 문자열로 출력
     }
 
     _addMessage("ai", message.toString());
   }
 
-  /// 📤 메시지 전송 (일반)
   Future<void> _sendToAgentica(String message) async {
     if (!_isConnected || _channel == null) {
       _addMessage("ai", "서버에 연결되지 않았습니다.");
@@ -214,14 +199,12 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     }
   }
 
-  /// 📤 메시지 전송 (근처 센터: 좌표 포함)
   Future<void> _sendNearbyCenters() async {
     if (!_isConnected || _channel == null) {
       _addMessage("ai", "서버에 연결되지 않았습니다.");
       return;
     }
     try {
-      // 권한 체크/요청
       LocationPermission perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied ||
           perm == LocationPermission.deniedForever) {
@@ -233,15 +216,12 @@ class _ChatBotScreenState extends State<ChatBotScreen>
         }
       }
 
-      // 현재 좌표
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // 대화 기록에 노출
       _addMessage("user", "내 근처 센터");
 
-      // 좌표 포함 전송
       final rpcMsg = {
         "target": "chat",
         "method": "send",
@@ -267,16 +247,13 @@ class _ChatBotScreenState extends State<ChatBotScreen>
             ..clear()
             ..addAll(messages);
 
-          // 2) 애니메이션 플래그 길이 맞추기(길이 불일치로 렌더가 스킵되는 문제 방지)
           _messageAnimations
             ..clear()
             ..addAll(List<bool>.filled(_messages.length, true));
 
-          // 3) 웰컴 카드 숨김
           _showWelcomeCard = _messages.isEmpty;
         });
 
-        // 4) 스크롤 맨 아래로
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
         debugPrint('[Chatbot] restored ${_messages.length} msgs from MongoDB');
@@ -295,7 +272,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     }
   }
 
-  /// 💬 메시지 리스트에 추가
   void _addMessage(String role, String text) {
     if (!mounted) return;
 
@@ -318,7 +294,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     });
   }
 
-  /// ⬇️ 스크롤 맨 아래로 이동
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -331,14 +306,12 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     });
   }
 
-  /// 완료 버튼 클릭
   void _onCompletePressed() {
     final text = _searchController.text.trim();
     if (text.isEmpty) return;
     _searchController.clear();
     FocusScope.of(context).unfocus();
 
-    // ✅ "근처/내 위치/가까운/주변" 포함 시 현위치로 전송
     final t = text.replaceAll(' ', '');
     final isNearby = RegExp(r'(근처|내위치|가까운|주변)').hasMatch(t);
     if (isNearby) {
@@ -350,9 +323,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     _sendToAgentica(text);
   }
 
-  /// 추천 질문 클릭
   void _onSuggestionPressed(String suggestion) {
-    // ✅ 추천칩도 동일 트리거 동작
     final t = suggestion.replaceAll(' ', '');
     final isNearby = RegExp(r'(근처|내위치|가까운|주변)').hasMatch(t);
     if (isNearby) {
@@ -364,9 +335,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     _sendToAgentica(suggestion);
   }
 
-  // ⬇️ AI 메시지(링크/마크다운 or 정책/센터 카드) 렌더러
   Widget _buildAssistantRich(String text, {TextStyle? baseStyle}) {
-    // 마크다운 링크가 있으면 Markdown으로 처리
     final hasMarkdownLink = RegExp(
       r'\[(.*?)\]\((https?:\/\/[^\s)]+)\)',
     ).hasMatch(text);
@@ -385,7 +354,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
       );
     }
 
-    // 일반 URL만 있으면 Linkify로 자동 링크화
     final hasUrl = RegExp(r'https?://').hasMatch(text);
     if (hasUrl) {
       return Linkify(
@@ -401,19 +369,16 @@ class _ChatBotScreenState extends State<ChatBotScreen>
       );
     }
 
-    // 링크 없으면 기본 Text
     return Text(
       text,
       style: baseStyle ?? const TextStyle(fontSize: 14, color: Colors.black87),
     );
   }
 
-  // ⬇️ 정책/센터 카드 JSON이면 카드로, 아니면 기존 텍스트로
   Widget _buildAiMessageOrCards(String text) {
     try {
       final obj = jsonDecode(text);
 
-      // 정책 카드
       if (obj is Map && obj["type"] == "policy_cards" && obj["items"] is List) {
         final items = (obj["items"] as List)
             .map(
@@ -426,7 +391,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
         }
       }
 
-      // ✅ 센터 카드
       if (obj is Map && obj["type"] == "center_cards" && obj["items"] is List) {
         final items = (obj["items"] as List)
             .map(
@@ -439,7 +403,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
         }
       }
     } catch (_) {
-      // JSON 아님 → 기존 렌더
     }
     return _buildAssistantRich(
       text,
@@ -447,7 +410,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     );
   }
 
-  /// 🧱 메시지 UI
   Widget _buildMessage(Map<String, String> msg, int index) {
     final isUser = msg["role"] == "user";
     final isAnimated =
@@ -503,7 +465,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     _partyIconController.dispose();
     _connectionController.dispose();
 
-    // 키워드 애니메이션 컨트롤러들 해제
     for (final controller in _keywordControllers) {
       controller.dispose();
     }
@@ -689,8 +650,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
               _buildAnimatedSuggestionChip("지원", 5),
               _buildAnimatedSuggestionChip("금융", 6),
               _buildAnimatedSuggestionChip("문화", 7),
-              // 원하면 여기 칩에 "근처 센터" 추가 후 onTap에서 _sendNearbyCenters() 호출 가능
-              // _buildAnimatedSuggestionChip("근처 센터", 0),
             ],
           ),
         ],
@@ -797,7 +756,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
                             _messageAnimations.clear();
                             _showWelcomeCard = true;
                           });
-                          // 서버(chat 컬렉션)에서도 삭제
                           await AuthService.clearChatMessages();
                         }
                       },
@@ -858,7 +816,6 @@ class _ChatBotScreenState extends State<ChatBotScreen>
   }
 }
 
-// ================== 아래부터: 정책 카드 UI 모듈 ==================
 
 class PolicyCardModel {
   final String id;
@@ -1159,7 +1116,6 @@ class _SectionDivider extends StatelessWidget {
   );
 }
 
-// ================== 청년센터 카드 UI ==================
 
 class CenterCardModel {
   final String id;
@@ -1276,7 +1232,6 @@ class _CenterPreviewCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 이름
             Text(
               data.title,
               maxLines: 2,
@@ -1284,7 +1239,6 @@ class _CenterPreviewCard extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
             ),
             const SizedBox(height: 6),
-            // 주소/거리
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

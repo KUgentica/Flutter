@@ -19,10 +19,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   Timer? _timer;
   double _scrollPosition = 0;
   
-  // 카테고리 애니메이션 컨트롤러 제거
-  // late List<AnimationController> _categoryControllers;
-  // late List<Animation<double>> _categoryAnimations;
-  
   final List<Map<String, dynamic>> categories = [
     {
       'title':'청년 센터',
@@ -123,32 +119,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     // _initializeCategoryAnimations(); // 애니메이션 제거
     _startAutoScroll();
   }
-  
-  // void _initializeCategoryAnimations() {
-  //   _categoryControllers = [];
-  //   _categoryAnimations = [];
-    
-  //   for (int i = 0; i < categories.length; i++) {
-  //     final controller = AnimationController(
-  //       duration: Duration(milliseconds: 2000 + (i * 300)),
-  //       vsync: this,
-  //     );
-      
-  //     final animation = Tween<double>(
-  //       begin: 0.0,
-  //       end: 1.0,
-  //     ).animate(CurvedAnimation(
-  //       parent: controller,
-  //       curve: Curves.easeInOut,
-  //     ));
-      
-  //     _categoryControllers.add(controller);
-  //     _categoryAnimations.add(animation);
-      
-  //     // 각 카테고리마다 다른 타이밍으로 반복 애니메이션
-  //     controller.repeat();
-  //   }
-  // }
+
 
   @override
   void dispose() {
@@ -242,7 +213,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                     
                     SizedBox(height: screenHeight * 0.02),
                     
-                    // 메인 문구
                     Text(
                       '원하는 청년 정책, 한눈에 확인!',
                       style: TextStyle(
@@ -253,7 +223,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                     
                     SizedBox(height: screenHeight * 0.03),
                     
-                    // 카테고리 섹션
                     Text(
                       '카테고리',
                       style: TextStyle(
@@ -294,131 +263,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                     
                     SizedBox(height: screenHeight * 0.03),
                     
-                    // 최신 정책 섹션
-                    // Text(
-                    //   '최신 정책',
-                    //   style: TextStyle(
-                    //     fontSize: screenWidth * 0.05,
-                    //     fontWeight: FontWeight.bold,
-                    //   ),
-                    // ),
-                    // SizedBox(height: screenHeight * 0.015),
-                    
-                    // SizedBox(
-                    //   height: screenHeight * 0.25,
-                    //   child: ListView.builder(
-                    //       controller: _scrollController,
-                    //       scrollDirection: Axis.horizontal,
-                    //     itemCount: latestPolicies.length * 3, // 무한 스크롤을 위해 3배로 늘림
-                    //     itemBuilder: (context, index) {
-                    //       final actualIndex = index % latestPolicies.length;
-                    //       return GestureDetector(
-                    //         onTap: () {
-                    //           Navigator.push(
-                    //             context,
-                    //             MaterialPageRoute(
-                    //               builder: (context) => PolicyDetailPage(
-                    //                 policy: latestPolicies[actualIndex],
-                    //               ),
-                    //             ),
-                    //           );
-                    //         },
-                    //         child: Container(
-                    //           width: screenWidth * 0.75,
-                    //           margin: const EdgeInsets.symmetric(horizontal: 8),
-                    //           decoration: BoxDecoration(
-                    //             color: Colors.white,
-                    //             borderRadius: BorderRadius.circular(16),
-                    //             boxShadow: [
-                    //               BoxShadow(
-                    //                 color: Colors.grey.withOpacity(0.2),
-                    //                 spreadRadius: 2,
-                    //                 blurRadius: 8,
-                    //                 offset: const Offset(0, 4),
-                    //               ),
-                    //             ],
-                    //           ),
-                    //           child: Column(
-                    //             crossAxisAlignment: CrossAxisAlignment.start,
-                    //             children: [
-                    //               Expanded(
-                    //                 flex: 3,
-                    //                 child: Container(
-                    //                   width: double.infinity,
-                    //                   decoration: BoxDecoration(
-                    //                     color: Colors.blue[100],
-                    //                     borderRadius: const BorderRadius.only(
-                    //                       topLeft: Radius.circular(16),
-                    //                       topRight: Radius.circular(16),
-                    //                     ),
-                    //                   ),
-                    //                   child: Center(
-                    //                     child: Icon(
-                    //                       Icons.policy,
-                    //                       size: screenWidth * 0.08,
-                    //                       color: Colors.blue[600],
-                    //                     ),
-                    //                   ),
-                    //                 ),
-                    //               ),
-                    //               Expanded(
-                    //                 flex: 2,
-                    //                 child: Padding(
-                    //                   padding: EdgeInsets.all(screenWidth * 0.03),
-                    //                   child: Column(
-                    //                     crossAxisAlignment: CrossAxisAlignment.start,
-                    //                     children: [
-                    //                       Text(
-                    //                         latestPolicies[actualIndex]['title'],
-                    //                         style: TextStyle(
-                    //                           fontSize: screenWidth * 0.035,
-                    //                           fontWeight: FontWeight.bold,
-                    //                         ),
-                    //                         maxLines: 1,
-                    //                         overflow: TextOverflow.ellipsis,
-                    //                       ),
-                    //                       SizedBox(height: screenHeight * 0.003),
-                    //                       Text(
-                    //                         latestPolicies[actualIndex]['subtitle'],
-                    //                         style: TextStyle(
-                    //                           fontSize: screenWidth * 0.03,
-                    //                           color: Colors.grey[600],
-                    //                         ),
-                    //                         maxLines: 1,
-                    //                         overflow: TextOverflow.ellipsis,
-                    //                       ),
-                    //                       const Spacer(),
-                    //                       Row(
-                    //                         children: [
-                    //                           Icon(
-                    //                             Icons.location_on,
-                    //                             size: screenWidth * 0.03,
-                    //                             color: Colors.grey[500],
-                    //                           ),
-                    //                           SizedBox(width: screenWidth * 0.008),
-                    //                           Expanded(
-                    //                             child: Text(
-                    //                               latestPolicies[actualIndex]['location'],
-                    //                               style: TextStyle(
-                    //                                 fontSize: screenWidth * 0.025,
-                    //                                 color: Colors.grey[500],
-                    //                               ),
-                    //                               overflow: TextOverflow.ellipsis,
-                    //                             ),
-                    //                           ),
-                    //                         ],
-                    //                       ),
-                    //                     ],
-                    //                   ),
-                    //                 ),
-                    //               ),
-                    //             ],
-                    //           ),
-                    //         ),
-                    //       );
-                    //     },
-                    //   ),
-                    // ),
 
 
                 SizedBox(height: screenHeight * 0.01),
@@ -450,7 +294,6 @@ class _CategoryTileState extends State<_CategoryTile> {
     final baseColor = widget.color;
     final hoverColor = baseColor.withOpacity(0.8);
     return MouseRegion(
-      // hover 시에는 반응하지 않음
       onEnter: (_) {},
       onExit: (_) {},
       child: GestureDetector(

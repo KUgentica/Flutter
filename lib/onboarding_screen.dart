@@ -48,17 +48,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _completeOnboarding() async {
-    print('🚀 === Onboarding 완료 시작 ===');
-    print('🌍 선택된 지역: $_selectedRegion');
-    print('🎂 선택된 나이: $_selectedAge');
-    print('👫 선택된 성별: $_selectedGender');
-    
     try {
-      // 사용자 이메일 가져오기
       final prefs = await SharedPreferences.getInstance();
       final userEmail = prefs.getString('user_email');
       if (userEmail == null) {
-        print('❌ 사용자 이메일을 찾을 수 없습니다.');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('사용자 이메일을 찾을 수 없습니다. 다시 로그인해주세요.'),
@@ -67,34 +60,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         );
         return;
       }
-      
-      print('📧 사용자 이메일: $userEmail');
-      
-      // 사용자별 onboarding 완료 플래그 설정
+
       final onboardingKey = 'onboarding_completed_$userEmail';
       await prefs.setBool(onboardingKey, true);
-      print('✅ Onboarding 완료 플래그 설정: $onboardingKey = true');
-      
-      // MongoDB에 프로필 정보 저장
-      print('📡 MongoDB에 프로필 정보 저장 시도...');
+
       final result = await AuthService.updateUserProfile(
         email: userEmail,
         region: _selectedRegion,
         age: _selectedAge,
         gender: _selectedGender,
       );
-      
-      print('📥 === MongoDB 저장 결과 ===');
-      print('✅ 성공 여부: ${result['success']}');
-      print('📝 메시지: ${result['message']}');
-      
+
       if (result['success']) {
-        print('🎉 Onboarding 완료! MongoDB에 프로필 정보가 저장되었습니다.');
         if (mounted) {
           Navigator.pushReplacementNamed(context, '/home');
         }
       } else {
-        print('❌ MongoDB 저장 실패! 사용자에게 오류 메시지를 표시합니다.');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -106,11 +87,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
       
     } catch (e) {
-      print('💥 === Onboarding 완료 중 오류 발생 ===');
-      print('❌ 오류 타입: ${e.runtimeType}');
-      print('❌ 오류 메시지: $e');
-      print('❌ 스택 트레이스: ${StackTrace.current}');
-      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -480,7 +456,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 children: [
-                  // 페이지네이션 점들 (선택된 점이 길게 늘어남)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(3, (index) {

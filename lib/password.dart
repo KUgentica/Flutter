@@ -40,7 +40,6 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
       return;
     }
     
-    // 비밀번호 재설정 완료 후 로그인 화면으로 이동
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const LoginPage()),

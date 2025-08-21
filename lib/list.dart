@@ -59,7 +59,6 @@ class _PolicyListPageState extends State<PolicyListPage> {
         _isLoading = false;
       });
     } catch (e) {
-      print('💥 Failed to load initial data: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
@@ -67,14 +66,12 @@ class _PolicyListPageState extends State<PolicyListPage> {
 
   void _showBookmarkDialog(dynamic item) async {
     if (item.id == null || item.id.isEmpty) {
-      print('🚨 에러: item ID가 비어있습니다.');
       return;
     }
 
     final isCurrentlyBookmarked = _bookmarkedItemIds.contains(item.id);
     
     if (isCurrentlyBookmarked) {
-      // 이미 북마크된 경우 "이미 등록되어 있습니다" 다이얼로그 표시
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -91,7 +88,6 @@ class _PolicyListPageState extends State<PolicyListPage> {
         },
       );
     } else {
-      // 북마크되지 않은 경우 확인 다이얼로그 표시
       final shouldAdd = await showDialog<bool>(
         context: context,
         builder: (BuildContext context) {
@@ -119,40 +115,24 @@ class _PolicyListPageState extends State<PolicyListPage> {
   }
 
   void _toggleFavorite(dynamic item) async {
-  // --- 🐞 디버깅 시작 ---
-  print('--- ⭐️ 즐겨찾기 토글 시작 ⭐️ ---');
   if (item.id == null || item.id.isEmpty) {
-    print('🚨 에러: item ID가 비어있습니다.');
     return;
   }
   
   final itemId = item.id;
-  print('1. 토글 대상 ID: $itemId');
-  print('2. 현재 즐겨찾기 목록: $_bookmarkedItemIds');
-  
-  // isCurrentlyBookmarked가 항상 false로 나오는지 확인하는 것이 핵심입니다.
   final isCurrentlyBookmarked = _bookmarkedItemIds.contains(itemId);
-  print('3. 현재 즐겨찾기 여부 (isCurrentlyBookmarked): $isCurrentlyBookmarked');
-
-  // UI 낙관적 업데이트 (Optimistic Update)
   setState(() {
     if (isCurrentlyBookmarked) {
-      print('4. UI 업데이트: 즐겨찾기에서 "제거"합니다.');
       _bookmarkedItemIds.remove(itemId);
     } else {
-      print('4. UI 업데이트: 즐겨찾기에 "추가"합니다.');
       _bookmarkedItemIds.add(itemId);
     }
   });
 
   bool success;
   if (isCurrentlyBookmarked) {
-    // --- 즐겨찾기 해제 로직 ---
-    print('5. API 호출: [제거] 로직을 실행합니다.');
     success = await BookmarkService.removeBookmark(itemId);
   } else {
-    // --- 즐겨찾기 추가 로직 ---
-    print('5. API 호출: [추가] 로직을 실행합니다.');
     String itemType;
     String title;
     String description;
@@ -161,44 +141,30 @@ class _PolicyListPageState extends State<PolicyListPage> {
       itemType = 'CENTER';
       title = item.cntrNm;
       description = '${item.cntrAddr} ${item.cntrDaddr}'.trim();
-      print('   - 아이템 타입: CENTER');
     } else if (item is Policy) {
       itemType = 'POLICY';
       title = item.title;
       description = item.description;
-      print('   - 아이템 타입: POLICY');
-      print('   - 마감일: ${item.deadline}');
-      print('   - 마감일 길이: ${item.deadline.length}');
+
     } else {
-      print('🚨 에러: 알 수 없는 아이템 타입입니다.');
-      // UI 롤백이 필요하다면 여기에 추가할 수 있습니다.
       return;
     }
-    
-    print('   - 전송될 데이터: id=$itemId, type=$itemType, title=$title, desc=$description');
     final deadline = item is Policy ? item.deadline : null;
-    print('   - 마감일 정보: $deadline');
-    
+
     success = await BookmarkService.saveBookmark(
       itemId: itemId,
       itemType: itemType,
       title: title,
       description: description,
-      deadline: deadline, // Policy인 경우 마감일 정보 추가
+      deadline: deadline,
     );
   }
   
-  print('6. API 호출 결과 (success): $success');
-
-  // API 호출 실패 시 UI 롤백
   if (!success && mounted) {
-    print('❗️ API 호출 실패! UI를 이전 상태로 롤백합니다.');
     setState(() {
       if (isCurrentlyBookmarked) {
-        // 제거에 실패했으므로 다시 추가
         _bookmarkedItemIds.add(itemId);
       } else {
-        // 추가에 실패했으므로 다시 제거
         _bookmarkedItemIds.remove(itemId);
       }
     });
@@ -206,7 +172,6 @@ class _PolicyListPageState extends State<PolicyListPage> {
       const SnackBar(content: Text('오류가 발생했습니다. 다시 시도해주세요.')),
     );
   }
-  print('--- ✅ 즐겨찾기 토글 종료 ✅ ---');
 }
 
   List<dynamic> get _filteredItems {
@@ -340,7 +305,6 @@ class _PolicyListPageState extends State<PolicyListPage> {
               if (item.deadline.contains('상시')) _buildInfoRow(Icons.schedule, '상시 접수'),
               const SizedBox(height: 12),
               
-              // --- ⭐️ 수정된 부분 ---
               Row(
                 children: [
                   Expanded(

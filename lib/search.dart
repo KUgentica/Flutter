@@ -15,14 +15,12 @@ class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   
-  // --- State Variables ---
   List<Policy> _searchResults = [];
   Set<String> _bookmarkedPolicies = {}; // 북마크된 정책 ID들을 저장
   bool _isLoading = false;
   bool _hasSearched = false;
   bool _isSearching = false;
 
-  // 날짜 파싱 유틸 (첫 번째 코드에서 가져옴)
   DateTime? _parseYMD(String v) {
     final s = v.trim();
     if (s.length != 8) return null;
@@ -71,14 +69,10 @@ class _SearchPageState extends State<SearchPage> {
     super.dispose();
   }
 
-  // --- Data Handling ---
-
-  /// 북마크 확인 다이얼로그를 표시하는 함수
   Future<void> _showBookmarkDialog(Policy policy) async {
     final isCurrentlyBookmarked = _bookmarkedPolicies.contains(policy.id);
     
     if (isCurrentlyBookmarked) {
-      // 이미 북마크된 경우 "이미 등록되어 있습니다" 다이얼로그 표시
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -95,7 +89,6 @@ class _SearchPageState extends State<SearchPage> {
         },
       );
     } else {
-      // 북마크되지 않은 경우 확인 다이얼로그 표시
       final shouldAdd = await showDialog<bool>(
         context: context,
         builder: (BuildContext context) {
@@ -122,12 +115,10 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  /// 북마크 상태를 토글하는 함수
   Future<void> _toggleBookmark(Policy policy) async {
     final itemId = policy.id;
     final isCurrentlyBookmarked = _bookmarkedPolicies.contains(itemId);
 
-    // 낙관적 업데이트: UI를 먼저 변경
     setState(() {
       if (isCurrentlyBookmarked) {
         _bookmarkedPolicies.remove(itemId);
@@ -138,27 +129,18 @@ class _SearchPageState extends State<SearchPage> {
 
     bool success;
     if (isCurrentlyBookmarked) {
-      // 북마크 제거
       success = await BookmarkService.removeBookmark(itemId);
     } else {
-      // 북마크 저장
-      print('🔖 북마크 저장 시작:');
-      print('   - 정책 ID: $itemId');
-      print('   - 정책 제목: ${policy.title}');
-      print('   - 마감일: ${policy.deadline}');
-      print('   - 마감일 길이: ${policy.deadline.length}');
-      
       success = await BookmarkService.saveBookmark(
         itemId: itemId,
         itemType: 'POLICY',
         title: policy.title,
         description: policy.description,
-        deadline: policy.deadline, // 마감일 정보 추가
+        deadline: policy.deadline,
       );
     }
 
     if (!success) {
-      // API 호출 실패 시 UI 롤백
       setState(() {
         if (isCurrentlyBookmarked) {
           _bookmarkedPolicies.add(itemId);
@@ -167,7 +149,6 @@ class _SearchPageState extends State<SearchPage> {
         }
       });
 
-      // 에러 메시지 표시
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -176,7 +157,6 @@ class _SearchPageState extends State<SearchPage> {
         );
       }
     } else {
-      // 성공 메시지 표시
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -303,7 +283,6 @@ class _SearchPageState extends State<SearchPage> {
             ),
           ),
 
-          // 검색 중 표시
           if (_isSearching)
             const Padding(
               padding: EdgeInsets.all(16),
@@ -320,7 +299,6 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
 
-          // 검색 결과
           Expanded(
             child: _hasSearched && !_isSearching
                 ? _buildSearchResults()
@@ -331,7 +309,6 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  // 빈 상태 위젯
   Widget _buildEmptyState() {
     return const Center(
       child: Column(
@@ -355,7 +332,6 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  // 검색 결과 위젯
   Widget _buildSearchResults() {
     if (_isLoading) {
       return const Center(
@@ -433,7 +409,6 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  // 정책 카드 위젯 - 북마크 기능 및 신청하기 버튼 제거
   Widget _buildPolicyCard(Policy policy) {
     final deadlineLabel = _deadlineLabelOf(policy);
 
@@ -491,7 +466,6 @@ class _SearchPageState extends State<SearchPage> {
               ],
             ),
             const SizedBox(height: 12),
-            // 신청하기 버튼 제거하고 상세보기 버튼만 유지
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(

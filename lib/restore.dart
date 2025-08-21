@@ -49,7 +49,6 @@ class _RestorePageState extends State<RestorePage> {
   void _sendVerificationCode() {
     if (!_formKey.currentState!.validate()) return;
     
-    // 이메일 형식 검증 (간단한 정규식)
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(_emailController.text)) {
       _showErrorDialog('이메일(ID)가 올바르지 않습니다');
@@ -69,8 +68,6 @@ class _RestorePageState extends State<RestorePage> {
       return;
     }
     
-    // 무조건 맞다는 로직 (실제로는 서버에서 검증해야 함)
-    // 여기서는 간단히 6자리 숫자인지만 확인
     if (_verificationController.text.length != 6 || !RegExp(r'^\d{6}$').hasMatch(_verificationController.text)) {
       _showErrorDialog('인증번호를 다시 입력해주세요');
       _verificationController.clear();
@@ -83,7 +80,6 @@ class _RestorePageState extends State<RestorePage> {
     
     _timer?.cancel();
     
-    // 비밀번호 재설정 화면으로 이동
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const PasswordResetPage()),
@@ -264,7 +260,6 @@ class _RestorePageState extends State<RestorePage> {
                 ),
                 const SizedBox(height: 24),
                 
-                // 인증번호 확인 버튼
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -287,7 +282,6 @@ class _RestorePageState extends State<RestorePage> {
                   ),
                 ),
                 
-                // 시간 만료 시 재전송 버튼
                 if (!_isTimerActive) ...[
                   const SizedBox(height: 16),
                   SizedBox(
